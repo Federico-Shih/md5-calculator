@@ -9,6 +9,8 @@
 #define READEND 0
 #define WRITEEND 1
 
+#define CHILD "./child"
+
 void statErrorHandling(int errnum){
     //complete
     exit(1);
@@ -77,7 +79,7 @@ int main(int argc, char * argv[]){
     // pipedes[childNum][APPWRITES or APPREADS] represents pipe for app writing and pipe for app reading
     int pipedes[childNum][2][2];
 
-    // Create pipes
+    // Create pipes and childs
     for (int i = 0; i < childNum; i++){
         if(pipe(pipedes[i][APPREADS]) != 0)
             pipeErrorHandling();
@@ -95,10 +97,11 @@ int main(int argc, char * argv[]){
             close(pipedes[i][APPWRITES][WRITEEND]);
             dup2(pipedes[i][APPREADS][WRITEEND], STDOUT_FILENO); //child writes to STDOUT
             close(pipedes[i][APPREADS][READEND]);
-            execl("./child", "./child", (char *)NULL);
+            execl("CHILD", "CHILD", (char *)NULL);
         }
         close(pipedes[i][APPREADS][WRITEEND]);
         close(pipedes[i][APPWRITES][READEND]);
+        
     }
 
     //creo un file (si ya existe borro sus contenidos) y le escribo los filenames junto a su md5
@@ -109,7 +112,7 @@ int main(int argc, char * argv[]){
     bool processing = true;
     int files = 0; 
     while (processing) {
-        for (int childs = 0; childs < childNum; childs += 1) {
+        for (int childs = 0; childs < childNum && processing; childs += 1) {
             // Send files to childs
             // if files == fileCount, close child pipes
         }
