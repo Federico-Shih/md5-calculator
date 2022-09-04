@@ -28,27 +28,34 @@ void pipeErrorHandling(){
 int main(int argc, char * argv[]){
     if(argc <= 1)
         return 0;
-
+    
     int shm_fd;
-    if ((shm_fd = shm_open(SHARED_MEM_DIR, O_RDWR|O_CREAT|O_EXCL, S_IRUSR|S_IWUSR)) == -1) {
+    if ((shm_fd = shm_open(SHARED_MEM_DIR, O_RDWR|O_CREAT, S_IRUSR|S_IWUSR)) == -1) {
         perror("shm_open\n");
     }
 
-    if (ftruncate(shm_fd, sizeof(shared_results)) == -1) {
+    if (ftruncate(shm_fd, sizeof(struct shared_result)) == -1) {
         perror("ftruncate\n");
     }
 
-    shared_results* shared_mem = mmap(NULL, sizeof(shared_results), PROT_READ|PROT_WRITE, MAP_SHARED, shm_fd, 0);
+    shared_result* shared_mem = mmap(NULL, sizeof(struct shared_result), PROT_READ|PROT_WRITE, MAP_SHARED, shm_fd, 0);
 
-    if (sem_init(shared_mem->semaphore, 1, 1) == -1) {
+    if (sem_init(&(shared_mem->semaphore), 1, 0) == -1) {
         perror("sem_init\n");
     }
+    printf("%s\n", SHARED_MEM_DIR);
+    struct timespec time;
+    if (clock_gettime(CLOCK_REALTIME, &time) == -1)
+        return -1;
 
-    struct timespec time = { .tv_sec = 2, .tv_nsec = 0};
-    int initializedView = sem_timedwait(shared_mem->semaphore, &time);
+    time.tv_sec += 10;
+    shared_mem->size = 1;
+    int initializedView = sem_timedwait(&(shared_mem->semaphore), &time);
+
     if (initializedView == -1) {
-        sem_post(shared_mem->semaphore);
+        sem_post(&(shared_mem->semaphore));
     }
+    return;
 
     struct stat statbuf;
     int errnum;
@@ -121,8 +128,8 @@ int main(int argc, char * argv[]){
 
 
     close(fd);
-    sem_close(shared_mem->semaphore);
-    munmap(shared_mem, sizeof(shared_results));
+    sem_close(&(shared_mem->semaphore));
+    munmap(shared_mem, sizeof(shared_result));
     close(shm_fd);
     return 0;
 }
