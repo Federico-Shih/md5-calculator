@@ -22,6 +22,8 @@
 #define SHARED_MEM_DIR "/shared"
 #define SHARED_MEM_MAX_DIR 32
 
+#define MAXLENGTH 128
+
 typedef struct result {
   char filename[FILENAME_MAX];
   char hash[16];

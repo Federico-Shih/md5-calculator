@@ -2,7 +2,7 @@
 #include <stdio.h>
 
 #define MD5 "md5sum"
-#define MAXLENGTH 128
+
 
 //devuelve en buffer el filename para pasarle a md5 como argumento. Si recibe EOF hace que el child termine.
 int getFileName(char * buffer){
@@ -24,7 +24,7 @@ void printResult(int fd){
     char buf[1];
     while(read(fd, buf, 1) != 0)
         printf("%s", buf);
-    printf("\n");
+    printf(0);
 }
 
 int main(int argc, char* argv[]){
@@ -52,8 +52,6 @@ int main(int argc, char* argv[]){
         
         close(pipedes[0]);
     }
-
-    printf("child ended\n");
 
     return EXIT_SUCCESS;
 }
