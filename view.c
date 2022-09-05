@@ -18,7 +18,6 @@ int main(int argc, char const *argv[])
         i += 1;
       }
       shared_mem_name[i] = '\0';
-      printf("WHY\n");
       printf("%s", shared_mem_name);
       shm_fd = shm_open(shared_mem_name, O_RDWR, S_IRUSR|S_IWUSR);
   }
@@ -34,7 +33,7 @@ int main(int argc, char const *argv[])
   do {
     sem_wait(&(shared_mem->semaphore));
     for (int i = 0; i < shared_mem->size; i += 1) {
-      printf("FILENAME=%s HASH=%s PID=%d\n", shared_mem->buffer[i].filename, shared_mem->buffer[i].hash, shared_mem->buffer[i].process);
+      printf("FILENAME=%s HASH=%s PID=%d\n", shared_mem->buffer[i].filename, shared_mem->buffer[i].hash, shared_mem->buffer[i].processId);
     }
   } while (shared_mem->size != 0);
 

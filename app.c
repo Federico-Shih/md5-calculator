@@ -47,16 +47,17 @@ int main(int argc, char * argv[]){
     int childPids[childNum]; //creo que es innecesario
     // Create pipes and childs
     createChilds(pipedes, childNum, childPids);
+    printf("Childs created\n");
 
 
-    //creo un file (si ya existe borro sus contenidos) y le escribo los filenames junto a su md5
-    int fd = open("result.txt", O_RDWR|O_CREAT|O_TRUNC, S_IRWXU);
-    if(fd < 0) errorHandling("open");
 
     //asigna files a procesar a todos los hijos disponibles hasta que todos los files esten procesados
     processFiles(childNum, pipedes, filecount, filenames);
 
-    //escribo todo en el file en formato: "Filename: $FILENAME MD5: $MD5"
+    // //creo un file (si ya existe borro sus contenidos) y le escribo los filenames junto a su md5
+    // int fd = open("result.txt", O_RDWR|O_CREAT|O_TRUNC, S_IRWXU);
+    // if(fd < 0) errorHandling("open");
+    // // escribo todo en el file en formato: "Filename: $FILENAME MD5: $MD5"
     // for (int i = 0; i < filecount; i++){
     //     if(write(fd, "Filename: ", aux) == -1) writeErrorHandling();
     //     if(write(fd, (const void *) filenames[i], aux) == -1) writeErrorHandling();
@@ -97,7 +98,7 @@ void createChilds(int pipedes[][2][2], int childNum, int childPids[]){
                 close(pipedes[i][APPWRITES][WRITEEND]);
                 dup2(pipedes[i][APPREADS][WRITEEND], STDOUT_FILENO); //child writes to STDOUT
                 close(pipedes[i][APPREADS][READEND]);
-                execl("CHILD", "CHILD", (char *)NULL);
+                execl(CHILD, CHILD, (char *)NULL);
             }else{
                 childPids[i] = pid;
             }
@@ -113,7 +114,7 @@ void processFiles(int childNum, int pipedes[][2][2], int filecount, char * filen
 
     //ocupo a todos los hijos
     for(int itChild = 0; itChild < childNum && filesSent < filecount; itChild++, filesSent++){
-        write(pipedes[itChild][APPWRITES][WRITEEND], filenames[filesSent], strlen(filenames[filesSent]+1));
+        write(pipedes[itChild][APPWRITES][WRITEEND], filenames[filesSent], strlen(filenames[filesSent]) + 1);
     }
     
     fd_set selectfd;
@@ -122,21 +123,20 @@ void processFiles(int childNum, int pipedes[][2][2], int filecount, char * filen
     int maxfd, retval;
     
     while (processing){
-
         //loadSet
         maxfd = loadSet(childNum, &selectfd, pipedes);
-        
+        printf("PROCESSING...\n");
         //SELECT: me tengo que fijar que pipedes[i][APPREADS][READEND] este listo para ser leido (porque eso significa que el child ya termino de procesar el file anterior)
         // quedan dentro de selectfd los fds que estan listos para hacer una tarea
-        retval = select(maxfd, &selectfd, NULL, NULL, NULL);printf("por ahora anda...\n");
+        
+        retval = select(maxfd, &selectfd, NULL, NULL, NULL);
+        printf("por ahora anda...\n");
         
         if(retval == -1){
             errorHandling("select");
-        }else if(retval){ //retval es la cantidad de hijos que termino de procesar
-
-            rAndWChilds(childNum, &filesReceived, &filesSent, filecount, filenames, &selectfd, pipedes);
-
-        }else{
+        } else if(retval){ //retval es la cantidad de hijos que termino de procesar
+            readChildsAndProcess(childNum, &filesReceived, &filesSent, filecount, filenames, &selectfd, pipedes);
+        } else {
             printf("waiting for childs to complete md5sum");
             sleep(1);
         }
@@ -176,10 +176,10 @@ void parseArguments(int argc, char * argv[], int * filecount, char * filenames[]
         errorHandling("No arguments inserted\n");
 }
 
-void rAndWChilds(int childNum, int *filesReceived, int* filesSent, int filecount, char* filenames[], fd_set *selectfd, int pipedes[][2][2]){
+void readChildsAndProcess(int childNum, int *filesReceived, int* filesSent, int filecount, char* filenames[], fd_set *selectfd, int pipedes[][2][2]){
     char readbuf[1];
     char fileName[MAXLENGTH];
-    char hash[33];
+    char hash[32]; // Hash es definido 32 bytes
     char pid[MAXLENGTH];
     
     result resStruct;
@@ -191,33 +191,17 @@ void rAndWChilds(int childNum, int *filesReceived, int* filesSent, int filecount
                     
             //si filesSent < filecount -> leo del hijo que termino y le paso un proceso nuevo
             //si filesSent == filecount -> leo del hijo que termino y le paso EOF para que ese hjo muera
-            int itHash;
-            for ( itHash = 0; *readbuf != '\0' ; itHash++){ //copy hash
-                read(pipedes[itChild][APPREADS][READEND], readbuf, 1);
-                resStruct.hash[itHash] = *readbuf;
+            if (read(pipedes[itChild][APPREADS][READEND], &resStruct, sizeof(result)) != -1) {
+                errorHandling("read parent");
             }
-            int itFile;
-            for (itFile = 0; *readbuf != 0; itFile++){
-                read(pipedes[itChild][APPREADS][READEND], readbuf, 1);
-                resStruct.filename[itFile] = *readbuf;
-            }
-            resStruct.filename[itFile] = 0;
-            int itPid;
-            for (itPid = 0; *readbuf != '\0' ; itPid++){ //copy pid
-                read(pipedes[itChild][APPREADS][READEND], readbuf, 1);
-                resStruct.process[itPid] = *readbuf;
-            }
-            resStruct.process[itPid] = 0;
 
-            printf("Filename:%s, PID:%s, Hash:%s", resStruct.filename, resStruct.process, resStruct.hash); //delete later
+            printf("Filename:%s, PID:%d, Hash:%s", resStruct.filename, resStruct.processId, resStruct.hash); //delete later
 
             (*filesReceived)++;
 
             if(*filesSent < filecount){
-
                 write(pipedes[itChild][APPWRITES][WRITEEND], filenames[*filesSent], strlen(filenames[*filesSent])+1);
                 (*filesSent)++;
-
             }else{
                 //close last write pid of child pipe-> child receives EOF when reading pipe-> child ends
                 close(pipedes[itChild][APPWRITES][WRITEEND]);

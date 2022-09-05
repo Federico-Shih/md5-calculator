@@ -17,6 +17,8 @@
 #include <unistd.h>
 #include <time.h>
 #include <string.h>
+#include <limits.h>
+#include <sys/wait.h>
 
 #define MAX_RESULTS 1
 #define SHARED_MEM_DIR "/shared"
@@ -26,10 +28,12 @@
 #define HASHSIZE 32
 #define MAX_PID 6 //porque el maximo pid posible es 32768
 
+#define RESULT_FORMAT "%s  %s  %d"
+
 typedef struct result {
-  char filename[FILENAME_MAX];
+  char filename[NAME_MAX];
   char hash[HASHSIZE];
-  char process[MAX_PID];
+  pid_t processId;
 } result;
 
 typedef struct shared_result {
