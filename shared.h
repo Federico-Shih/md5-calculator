@@ -23,11 +23,13 @@
 #define SHARED_MEM_MAX_DIR 32
 
 #define MAXLENGTH 128
+#define HASHSIZE 32
+#define MAX_PID 6 //porque el maximo pid posible es 32768
 
 typedef struct result {
   char filename[FILENAME_MAX];
-  char hash[16];
-  pid_t process;
+  char hash[HASHSIZE];
+  char process[MAX_PID];
 } result;
 
 typedef struct shared_result {
@@ -35,5 +37,12 @@ typedef struct shared_result {
   struct result buffer[MAX_RESULTS];
   sem_t semaphore;
 } shared_result;
+
+void errorHandling(char* error);
+
+void errorHandling(char* error){
+    perror(error);
+    exit(EXIT_FAILURE);
+}
 
 #endif

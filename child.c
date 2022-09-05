@@ -4,7 +4,7 @@
 #define MD5 "md5sum"
 
 
-//devuelve en buffer el filename para pasarle a md5 como argumento. Si recibe EOF hace que el child termine.
+//devuelve en buffer el filename para pasarle a md5sum como argumento. Si recibe EOF hace que el child termine.
 int getFileName(char * buffer){
     size_t i;
     char buf[1];
@@ -20,14 +20,29 @@ int getFileName(char * buffer){
     return 0;
 }
 
-void printResult(int fd){
+//app.c receives via pipe: HASH0FILENAME0PID0
+void printResult(int fd, pid_t pid){
+    result resStruct;
     char buf[1];
-    while(read(fd, buf, 1) != 0)
-        printf("%s", buf);
-    printf(0);
+
+    int itHash = 0;
+    while(read(fd, buf, 1) != 0 && itHash++ < HASHSIZE)
+        write(STDOUT_FILENO, buf, 1);
+    printf("%c", 0);
+
+    int itFilename = 0;
+    while(read(fd, buf, 1) != 0 && *buf != '\n' && itFilename < MAXLENGTH-1)
+        if(*buf != ' ')
+            write(STDOUT_FILENO, buf, 1);
+    printf("%c", 0);
+    
+    printf("%d", pid);
+    printf("%c", 0);
 }
 
 int main(int argc, char* argv[]){
+
+    pid_t thisPid = getpid(); //pid de este hijo
 
     char filename[MAXLENGTH]; //leerlo del pipe
     int pipedes[2];
@@ -47,8 +62,9 @@ int main(int argc, char* argv[]){
             execlp(MD5, MD5, filename, NULL);
         }
         close(pipedes[1]);
-        //imprimo en salida estandar el resultado de MD5
-        printResult(pipedes[0]);
+
+        //imprimo el struct salida estandar el resultado de MD5
+        printResult(pipedes[0], thisPid);
         
         close(pipedes[0]);
     }

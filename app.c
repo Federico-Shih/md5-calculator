@@ -14,6 +14,7 @@ int main(int argc, char * argv[]){
         errorHandling("ftruncate");
     }
 
+/*
     shared_result* shared_mem = mmap(NULL, sizeof(struct shared_result), PROT_READ|PROT_WRITE, MAP_SHARED, shm_fd, 0);
 
     if (sem_init(&(shared_mem->semaphore), 1, 0) == -1) {
@@ -32,6 +33,7 @@ int main(int argc, char * argv[]){
         sem_post(&(shared_mem->semaphore));
     }
     return 4;
+    */
     
     char* filenames[argc-1]; //null terminated names of valid arguments
     int filecount = 0; //size of filenames
@@ -42,7 +44,7 @@ int main(int argc, char * argv[]){
     // pipedes[childNum][APPWRITES or APPREADS] represents pipe for app writing and pipe for app reading
     int pipedes[childNum][2][2];
     // childPids stores the pids of the child processes :D
-    int childPids[childNum];
+    int childPids[childNum]; //creo que es innecesario
     // Create pipes and childs
     createChilds(pipedes, childNum, childPids);
 
@@ -64,21 +66,17 @@ int main(int argc, char * argv[]){
     // }
 
     //cierro los fd restantes
-    for (size_t childIt = 0; childIt < childNum; childIt++){
-        close(pipedes[childIt][APPWRITES][WRITEEND]);
-        close(pipedes[childIt][APPREADS][READEND]);
+    for (size_t itChild = 0; itChild < childNum; itChild++){
+        close(pipedes[itChild][APPREADS][READEND]);
     }
 
+/*
     close(fd);
     sem_close(&(shared_mem->semaphore));
     munmap(shared_mem, sizeof(shared_result));
     close(shm_fd);
+    */
     return 0;
-}
-
-void errorHandling(char* error){
-    perror(error);
-    exit(EXIT_FAILURE);
 }
 
 void createChilds(int pipedes[][2][2], int childNum, int childPids[]){
@@ -114,8 +112,8 @@ void processFiles(int childNum, int pipedes[][2][2], int filecount, char * filen
     int filesReceived = 0; //los resultados que obtuve de los hijos
 
     //ocupo a todos los hijos
-    for(int itChilds = 0; itChilds < childNum && filesSent < filecount; itChilds++, filesSent++){
-        write(pipedes[itChilds][APPWRITES][WRITEEND], filenames[filesSent], strlen(filenames[filesSent]+1));
+    for(int itChild = 0; itChild < childNum && filesSent < filecount; itChild++, filesSent++){
+        write(pipedes[itChild][APPWRITES][WRITEEND], filenames[filesSent], strlen(filenames[filesSent]+1));
     }
     
     fd_set selectfd;
@@ -128,15 +126,15 @@ void processFiles(int childNum, int pipedes[][2][2], int filecount, char * filen
         //loadSet
         maxfd = loadSet(childNum, &selectfd, pipedes);
         
-        //SELECT: me tengo que fijar que pipedes[i][APPREADS][READEND] este "listo" (porque eso significa que el child ya termino de procesar el file anterior)
+        //SELECT: me tengo que fijar que pipedes[i][APPREADS][READEND] este listo para ser leido (porque eso significa que el child ya termino de procesar el file anterior)
         // quedan dentro de selectfd los fds que estan listos para hacer una tarea
-        retval = select(maxfd, &selectfd, NULL, NULL, NULL);
+        retval = select(maxfd, &selectfd, NULL, NULL, NULL);printf("por ahora anda...\n");
         
         if(retval == -1){
             errorHandling("select");
         }else if(retval){ //retval es la cantidad de hijos que termino de procesar
 
-            readAndWriteChilds(childNum, &filesReceived, &filesSent, filecount, filenames, &selectfd, pipedes);
+            rAndWChilds(childNum, &filesReceived, &filesSent, filecount, filenames, &selectfd, pipedes);
 
         }else{
             printf("waiting for childs to complete md5sum");
@@ -150,9 +148,9 @@ void processFiles(int childNum, int pipedes[][2][2], int filecount, char * filen
 
 int loadSet(int childNum, fd_set *selectfd, int pipedes[][2][2]){
     int currentfd, maxfd = 0;
-    for(int childIt = 0 ; childIt < childNum; childIt++){
+    for(int itChild = 0 ; itChild < childNum; itChild++){
             FD_ZERO(selectfd);
-            currentfd = pipedes[childIt][APPREADS][READEND];
+            currentfd = pipedes[itChild][APPREADS][READEND];
             FD_SET(currentfd, selectfd);
             if(currentfd > maxfd)
                 maxfd = currentfd;
@@ -170,7 +168,7 @@ void parseArguments(int argc, char * argv[], int * filecount, char * filenames[]
             
         //si son files los agrego, si son cualquier otra cosa los descarto
         if(S_ISREG(statbuf.st_mode)){
-            filenames[(*filecount)++] == argv[i];
+            filenames[(*filecount)++] = argv[i];
         }
     }
 
@@ -178,35 +176,51 @@ void parseArguments(int argc, char * argv[], int * filecount, char * filenames[]
         errorHandling("No arguments inserted\n");
 }
 
-void readAndWriteChilds(int childNum, int *filesReceived, int* filesSent, int filecount, char* filenames[], fd_set *selectfd, int pipedes[][2][2]){
+void rAndWChilds(int childNum, int *filesReceived, int* filesSent, int filecount, char* filenames[], fd_set *selectfd, int pipedes[][2][2]){
     char readbuf[1];
-    char resultBuffer[MAXLENGTH];
+    char fileName[MAXLENGTH];
+    char hash[33];
+    char pid[MAXLENGTH];
     
-    for(int childIt = 0; childIt < childNum; childIt++){
-        if(FD_ISSET(pipedes[childIt][APPREADS][READEND], selectfd)){
+    result resStruct;
+
+    // DEJAR NULL TERMINATED LOS 3 CAMPOS o en hash no hace falta :)? -> opinion total
+    
+    for(int itChild = 0; itChild < childNum; itChild++){
+        if(FD_ISSET(pipedes[itChild][APPREADS][READEND], selectfd)){
                     
             //si filesSent < filecount -> leo del hijo que termino y le paso un proceso nuevo
             //si filesSent == filecount -> leo del hijo que termino y le paso EOF para que ese hjo muera
-            for (size_t i = 0; i < MAXLENGTH; i++){
-                read(pipedes[childIt][APPREADS][READEND], readbuf, 1);
-                resultBuffer[i] = *readbuf;
-
-                //falta mandar lo obtenido en resultBuffer al archivo o a vista o a ambas!!
-
-                if(*readbuf == 0)
-                    break;
+            int itHash;
+            for ( itHash = 0; *readbuf != '\0' ; itHash++){ //copy hash
+                read(pipedes[itChild][APPREADS][READEND], readbuf, 1);
+                resStruct.hash[itHash] = *readbuf;
             }
-            *filesReceived++;
+            int itFile;
+            for (itFile = 0; *readbuf != 0; itFile++){
+                read(pipedes[itChild][APPREADS][READEND], readbuf, 1);
+                resStruct.filename[itFile] = *readbuf;
+            }
+            resStruct.filename[itFile] = 0;
+            int itPid;
+            for (itPid = 0; *readbuf != '\0' ; itPid++){ //copy pid
+                read(pipedes[itChild][APPREADS][READEND], readbuf, 1);
+                resStruct.process[itPid] = *readbuf;
+            }
+            resStruct.process[itPid] = 0;
+
+            printf("Filename:%s, PID:%s, Hash:%s", resStruct.filename, resStruct.process, resStruct.hash); //delete later
+
+            (*filesReceived)++;
 
             if(*filesSent < filecount){
 
-                // falta guardar el pid del hijo asignado en el struct
-                write(pipedes[childIt][APPWRITES][WRITEEND], filenames[*filesSent], strlen(filenames[*filesSent]+1));
-                filesSent++;
+                write(pipedes[itChild][APPWRITES][WRITEEND], filenames[*filesSent], strlen(filenames[*filesSent])+1);
+                (*filesSent)++;
 
             }else{
-                //el EOF TIRA WARNING ----- BAJA PUNTOS!
-                write(pipedes[childIt][APPWRITES][WRITEEND], (int*) EOF, 1);
+                //close last write pid of child pipe-> child receives EOF when reading pipe-> child ends
+                close(pipedes[itChild][APPWRITES][WRITEEND]);
             }
         }
     }
