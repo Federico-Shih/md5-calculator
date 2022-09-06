@@ -32,7 +32,7 @@
 
 typedef struct result {
   char filename[NAME_MAX];
-  char hash[HASHSIZE];
+  char hash[HASHSIZE+1];
   pid_t processId;
 } result;
 

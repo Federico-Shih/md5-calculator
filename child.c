@@ -8,22 +8,21 @@ int getFileName(char * buffer){
     char buf[1];
     bool reading = true;
     size_t i;
-    for (i = 0; i < MAXLENGTH && reading; i++){
-        if(read(STDIN_FILENO, buf, 1) == 0){ //EOF
-            write(STDERR_FILENO, "se ha terminado la ejecucion wey\n", strlen("se ha terminado la ejecucion wey\n"));
+    for (i = 0; i < MAXLENGTH && reading; ){
+        if(read(STDIN_FILENO, buf, 1) == 0){ //EOF received-> child dies
+            write(STDERR_FILENO, "hijo muerto\n", strlen("hijo muerto\n"));
             return 0;
         }
         if(*buf == '\n'){ //finished reading name
-            write(STDERR_FILENO, "termine wachin\n", strlen("termine wachin\n"));
             reading = false;
         }
         else{
             buffer[i] = *buf;
+            i++;
         }
     }
     buffer[i] = 0;
-    write(STDERR_FILENO, buffer, strlen(buffer));
-    write(STDERR_FILENO, "\n", 1);
+    //fprintf(stderr, "Recibi el filename: %s\n", buffer);
     return 1;
 }
 
@@ -32,11 +31,15 @@ void printResult(int fd, pid_t pid)
 {
     char temp;
 
-    while(read(fd, &temp, 1) != 0 && temp != '\n')
-        write(STDOUT_FILENO, temp, 1);
+    fprintf(stderr, "Sending to app: ");
+
+    while(read(fd, &temp, 1) != 0 && temp != '\n'){
+        write(STDOUT_FILENO, &temp, 1);
+        write(STDERR_FILENO, &temp, 1); //for debugging
+    }
     
     printf("  %d\n", pid);
-    write(STDERR_FILENO, "el hijo escribio algo\n", sizeof("el hijo escribio algo\n"));
+    fprintf(stderr, "  %d\n", pid);
 }
 
 int main()
@@ -57,9 +60,7 @@ int main()
         if ((pid = fork()) < 0)
             exit(1);
         else if(pid == 0){
-            write(STDERR_FILENO, "llamando a md5\n", sizeof("llamando a md5\n"));
-            write(STDERR_FILENO, filename, strlen(filename));
-            write(STDERR_FILENO, "\n", 1);
+            fprintf(stderr, "Calling md5 of file %s\n", filename);
             dup2(pipedes[1], STDOUT_FILENO);
             close(pipedes[0]);
             execlp(MD5, MD5, filename, NULL);
