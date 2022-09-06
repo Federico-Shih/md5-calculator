@@ -3,55 +3,40 @@
 
 #define MD5 "md5sum"
 
-// devuelve en buffer el filename para pasarle a md5sum como argumento. Si recibe EOF hace que el child termine.
-int getFileName(char *buffer)
-{
-    int i = 0;
-    char buf;
-    int c;
-    while ((c = getchar()) != EOF)
-    {
-        if (c == '\n' || c == '\0' || c == ' ') {
-            buffer[i] = '\0';
-            return 1;
-        } else {
-            buffer[i++] = c;
+//devuelve en buffer el filename para pasarle a md5sum como argumento. Si recibe EOF hace que el child termine.
+int getFileName(char * buffer){
+    char buf[1];
+    bool reading = true;
+    size_t i;
+    for (i = 0; i < MAXLENGTH && reading; i++){
+        if(read(STDIN_FILENO, buf, 1) == 0){ //EOF
+            write(STDERR_FILENO, "se ha terminado la ejecucion wey\n", strlen("se ha terminado la ejecucion wey\n"));
+            return 0;
+        }
+        if(*buf == '\n'){ //finished reading name
+            write(STDERR_FILENO, "termine wachin\n", strlen("termine wachin\n"));
+            reading = false;
+        }
+        else{
+            buffer[i] = *buf;
         }
     }
-    return 0;
+    buffer[i] = 0;
+    write(STDERR_FILENO, buffer, strlen(buffer));
+    write(STDERR_FILENO, "\n", 1);
+    return 1;
 }
 
 // Writes with format %hash  %name  %pid
 void printResult(int fd, pid_t pid)
 {
-    result resStruct;
-
     char temp;
-    int itName = 0;
-    int c;
-    if (read(fd, resStruct.hash, HASHSIZE) == -1)
-        perror("read");
 
-    while ((c = read(fd, &temp, 1) != -1) || c != 0)
-    {
-        if (temp == '\0' || temp == '\n')
-        {
-            resStruct.filename[itName] = '\0';
-            break;
-        }
-        else if (temp != ' ')
-        {
-            resStruct.filename[itName++] = temp;
-        }
-    }
-
-    if (c == -1)
-        errorHandling("printResult");
-
-    resStruct.processId = pid;
-
-    // printf("%32s %s %d", resStruct.hash, resStruct.filename, resStruct.processId);
-    write(STDOUT_FILENO, &resStruct, sizeof(result));
+    while(read(fd, &temp, 1) != 0 && temp != '\n')
+        write(STDOUT_FILENO, temp, 1);
+    
+    printf("  %d\n", pid);
+    write(STDERR_FILENO, "el hijo escribio algo\n", sizeof("el hijo escribio algo\n"));
 }
 
 int main()
@@ -71,14 +56,15 @@ int main()
             exit(1);
         if ((pid = fork()) < 0)
             exit(1);
-        else if (pid == 0)
-        {
+        else if(pid == 0){
+            write(STDERR_FILENO, "llamando a md5\n", sizeof("llamando a md5\n"));
+            write(STDERR_FILENO, filename, strlen(filename));
+            write(STDERR_FILENO, "\n", 1);
             dup2(pipedes[1], STDOUT_FILENO);
             close(pipedes[0]);
             execlp(MD5, MD5, filename, NULL);
         }
         close(pipedes[1]);
-        
         wait(NULL);
 
         // imprimo el struct salida estandar el resultado de MD5

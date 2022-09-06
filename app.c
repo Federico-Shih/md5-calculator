@@ -4,7 +4,7 @@
 int main(int argc, char * argv[]){
     if(argc <= 1)
         errorHandling("Invalid number of arguments");
-    
+/*   
     int shm_fd;
     if ((shm_fd = shm_open(SHARED_MEM_DIR, O_RDWR|O_CREAT, S_IRUSR|S_IWUSR)) == -1) {
         errorHandling("shm_open");
@@ -14,7 +14,7 @@ int main(int argc, char * argv[]){
         errorHandling("ftruncate");
     }
 
-/*
+
     shared_result* shared_mem = mmap(NULL, sizeof(struct shared_result), PROT_READ|PROT_WRITE, MAP_SHARED, shm_fd, 0);
 
     if (sem_init(&(shared_mem->semaphore), 1, 0) == -1) {
@@ -37,7 +37,7 @@ int main(int argc, char * argv[]){
     
     char* filenames[argc-1]; //null terminated names of valid arguments
     int filecount = 0; //size of filenames
-    parseArguments(argc, argv, &filecount, filenames);
+    parseArguments(argc, argv, &filecount, filenames);    
 
     int childNum = filecount/20 + 3; //algoritmo avanzado que define la cantidad de hijos a crear
 
@@ -48,8 +48,6 @@ int main(int argc, char * argv[]){
     // Create pipes and childs
     createChilds(pipedes, childNum, childPids);
     printf("Childs created\n");
-
-
 
     //asigna files a procesar a todos los hijos disponibles hasta que todos los files esten procesados
     processFiles(childNum, pipedes, filecount, filenames);
@@ -98,7 +96,9 @@ void createChilds(int pipedes[][2][2], int childNum, int childPids[]){
                 close(pipedes[i][APPWRITES][WRITEEND]);
                 dup2(pipedes[i][APPREADS][WRITEEND], STDOUT_FILENO); //child writes to STDOUT
                 close(pipedes[i][APPREADS][READEND]);
-                execl(CHILD, CHILD, (char *)NULL);
+
+                if(execl(CHILD, CHILD, (char *)NULL) == -1)
+                    perror("execl");
             }else{
                 childPids[i] = pid;
             }
@@ -113,10 +113,12 @@ void processFiles(int childNum, int pipedes[][2][2], int filecount, char * filen
     int filesReceived = 0; //los resultados que obtuve de los hijos
 
     //ocupo a todos los hijos
-    for(int itChild = 0; itChild < childNum && filesSent < filecount; itChild++, filesSent++){
-        write(pipedes[itChild][APPWRITES][WRITEEND], filenames[filesSent], strlen(filenames[filesSent]) + 1);
+    for(int itChild = 0; itChild < childNum && filesSent < filecount; itChild++){
+        write(pipedes[itChild][APPWRITES][WRITEEND], filenames[filesSent], strlen(filenames[filesSent]));
+        write(pipedes[itChild][APPWRITES][WRITEEND], "\n", 1);
+        filesSent++;
     }
-    
+
     fd_set selectfd;
     bool processing = true;
     
@@ -163,13 +165,14 @@ void parseArguments(int argc, char * argv[], int * filecount, char * filenames[]
     int errnum;
     for (int i = 1; i < argc; i++){
         errnum = stat(argv[i], &statbuf);
-        if (errnum != 0)
+        if (errnum != 0 && errno != ENOENT){
             errorHandling("stat");
-            
-        //si son files los agrego, si son cualquier otra cosa los descarto
-        if(S_ISREG(statbuf.st_mode)){
+        }
+        else if (errno != ENOENT && S_ISREG(statbuf.st_mode)){
+            //si son files los agrego, si son cualquier otra cosa o no existen los descarto
             filenames[(*filecount)++] = argv[i];
         }
+        errno = 0;
     }
 
     if (filecount == 0)
