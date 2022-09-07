@@ -54,7 +54,7 @@ int main(int argc, char * argv[]){
     createChilds(pipedes, childNum, childPids);
 
     //asigna files a procesar a todos los hijos disponibles hasta que todos los files esten procesados
-    processFiles(childNum, pipedes, filecount, filenames);
+    processFiles(childNum, pipedes, filecount, filenames, childPids);
 
     // //creo un file (si ya existe borro sus contenidos) y le escribo los filenames junto a su md5
     // int fd = open("result.txt", O_RDWR|O_CREAT|O_TRUNC, S_IRWXU);
@@ -111,14 +111,14 @@ void createChilds(int pipedes[][2][2], int childNum, int childPids[]){
         }
 }
 
-void processFiles(int childNum, int pipedes[][2][2], int filecount, char * filenames[]){
+void processFiles(int childNum, int pipedes[][2][2], int filecount, char * filenames[], int childPids[]){
 
     int filesSent = 0; //le mande a los hijos para que procesen
     int filesReceived = 0; //los resultados que obtuve de los hijos
 
     //ocupo a todos los hijos
     for(int itChild = 0; itChild < childNum && filesSent < filecount; itChild++){
-        printf("Enviando a child el nombre: %s de longitud %d\n", filenames[filesSent], strlen(filenames[filesSent]));
+        printf("Enviando a child el nombre: %s\n", filenames[filesSent]);
         dprintf(pipedes[itChild][APPWRITES][WRITEEND], "%s\n", filenames[filesSent]);
         filesSent++;
     }
@@ -134,12 +134,12 @@ void processFiles(int childNum, int pipedes[][2][2], int filecount, char * filen
         //SELECT: me tengo que fijar que pipedes[i][APPREADS][READEND] este listo para ser leido (porque eso significa que el child ya termino de procesar el file anterior)
         // quedan dentro de selectfd los fds que estan listos para hacer una tarea
         
-        retval = select(maxfd, &selectfd, NULL, NULL, NULL);
+        retval = select(maxfd+1, &selectfd, NULL, NULL, NULL);
         
         if(retval == -1){
             errorHandling("select");
         } else if(retval){ //retval es la cantidad de hijos que termino de procesar
-            readChildsAndProcess(childNum, retval, &filesReceived, &filesSent, filecount, filenames, &selectfd, pipedes);
+            readChildsAndProcess(childNum, retval, &filesReceived, &filesSent, filecount, filenames, &selectfd, pipedes, childPids);
         }
         //si todos los files fueron procesados termino el loop.
         if(filesReceived >= filecount)
@@ -178,28 +178,34 @@ void parseArguments(int argc, char * argv[], int * filecount, char * filenames[]
         errorHandling("No valid arguments inserted\n");
 }
 
-void readChildsAndProcess(int childNum, int fdNum, int *filesReceived, int* filesSent, int filecount, char* filenames[], fd_set *selectfd, int pipedes[][2][2]){
+void readChildsAndProcess(int childNum, int fdNum, int *filesReceived, int* filesSent, int filecount, char* filenames[], fd_set *selectfd, int pipedes[][2][2], int childPids[]){
     char readBuf;
+    char buffer[NAME_MAX];
+    int itBuffer;
     int processedFds = 0;
-    char pidAux[6];
     result resStruct;
     
     for(int itChild = 0; itChild < childNum; itChild++){
         if(FD_ISSET(pipedes[itChild][APPREADS][READEND], selectfd)){
-            puts("im alive");
+            itBuffer = 0;
+            do {
+                read(pipedes[itChild][APPREADS][READEND], &readBuf, 1);
+                buffer[itBuffer++] = readBuf;
+            } while (readBuf != ' ');
+            buffer[itBuffer-1] = 0;
+            strcpy(resStruct.hash, buffer);
+            read(pipedes[itChild][APPREADS][READEND], &readBuf, 1); //consumo el espacio restante
+            itBuffer = 0;
+            do {
+                read(pipedes[itChild][APPREADS][READEND], &readBuf, 1);
+                buffer[itBuffer++] = readBuf;
+            } while (readBuf != '\n');
+            buffer[itBuffer-1] = 0;
+            strcpy(resStruct.filename, buffer);
             //si filesSent < filecount -> leo del hijo que termino y le paso un proceso nuevo
             //si filesSent == filecount -> leo del hijo que termino y le paso EOF para que ese hjo muera
-            readUntilWhitespace(pipedes[itChild][APPREADS][READEND], resStruct.hash, sizeof(resStruct.hash)-1);
-            read(pipedes[itChild][APPREADS][READEND], &readBuf, 1);
-            read(pipedes[itChild][APPREADS][READEND], &readBuf, 1);
-            readUntilWhitespace(pipedes[itChild][APPREADS][READEND], resStruct.filename, sizeof(resStruct.filename)-1);puts("sigo vivo'''''''''''''''''''");
-            read(pipedes[itChild][APPREADS][READEND], &readBuf, 1);puts("sigo vivo'''''''''''''''''''");
-            read(pipedes[itChild][APPREADS][READEND], &readBuf, 1);puts("sigo vivo'''''''''''''''''''");
-            readUntilWhitespace(pipedes[itChild][APPREADS][READEND], pidAux, sizeof(pidAux)-1);
-            read(pipedes[itChild][APPREADS][READEND], &readBuf, 1);
-            
-            resStruct.processId = atoi(pidAux);
 
+            resStruct.processId = childPids[itChild];
 
             printf("PARENT RECEIVED: Filename:%s, PID:%d, Hash:%s", resStruct.filename, resStruct.processId, resStruct.hash); //delete later
 
@@ -219,13 +225,12 @@ void readChildsAndProcess(int childNum, int fdNum, int *filesReceived, int* file
 }
 
 //returns null term string in dest of the string read from fd until a whitespace or maxlength
-void readUntilWhitespace(int fd, char * dest, int maxlength){
-    char buf;
-    int ret;
-    int it = 0;
-    while((ret = read(fd, &buf, 1)) > -40 && buf != ' ' && buf != '\n' && it < maxlength-1){
-        dest[it++] = buf;
-    }
-    dest[it+1] = 0;
-    printf("EL MENSAJE LEIDO FUE %s\n", dest);
-}
+// void readUntilWhitespace(int fd, char * dest, int maxlength){
+//     char buf;
+//     int it = 0;
+//     while(read(fd, &buf, 1) > 0 && buf != ' ' && buf != '\n' && it < maxlength-1){
+//         dest[it++] = buf;
+//     }
+//     dest[it] = 0;
+//     printf("EL MENSAJE LEIDO FUE %s\n", dest);
+// }

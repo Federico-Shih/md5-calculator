@@ -18,9 +18,9 @@
 
 void createChilds(int pipedes[][2][2], int childNum, int childPids[]);
 void errorHandling(char* error);
-void readChildsAndProcess(int childNum, int fdNum, int *filesReceived, int* filesSent, int filecount, char* filenames[], fd_set *selectfd, int pipedes[][2][2]);
+void readChildsAndProcess(int childNum, int fdNum, int *filesReceived, int* filesSent, int filecount, char* filenames[], fd_set *selectfd, int pipedes[][2][2], int childPids[]);
 int loadSet(int childNum, fd_set *selectfd, int pipedes[][2][2]);
-void processFiles(int childNum, int pipedes[][2][2], int filecount, char * filenames[]);
+void processFiles(int childNum, int pipedes[][2][2], int filecount, char * filenames[], int childPids[]);
 void parseArguments(int argc, char * argv[], int * filecount, char * filenames[]);
 void readUntilWhitespace(int fd, char * dest, int maxlength);
 

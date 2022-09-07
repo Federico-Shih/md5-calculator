@@ -10,7 +10,7 @@ int getFileName(char * buffer){
     size_t i;
     for (i = 0; i < MAXLENGTH && reading; ){
         if(read(STDIN_FILENO, buf, 1) == 0){ //EOF received-> child dies
-            write(STDERR_FILENO, "hijo muerto\n", strlen("hijo muerto\n"));
+            write(STDERR_FILENO, "\nhijo muerto\n", strlen("\nhijo muerto\n"));
             return 0;
         }
         if(*buf == '\n'){ //finished reading name
@@ -26,31 +26,24 @@ int getFileName(char * buffer){
     return 1;
 }
 
-// Writes with format %hash  %name  %pid
-void printResult(int fd, pid_t pid)
+// Writes with format %hash  %name\n
+void printResult(int fd)
 {
     char temp;
 
-    fprintf(stderr, "Sending to app: ");
-
     while(read(fd, &temp, 1) != 0 && temp != '\n'){
         write(STDOUT_FILENO, &temp, 1);
-        write(STDERR_FILENO, &temp, 1); //for debugging
     }
-    
-    printf("  %d\n", pid);
-    fprintf(stderr, "  %d\n", pid);
+    write(STDOUT_FILENO, "\n", 1);
 }
 
 int main()
 {
-    pid_t thisPid = getpid(); // pid de este hijo
 
     char filename[MAXLENGTH]; // leerlo del pipe
     int pipedes[2];
 
     pid_t pid;
-    int processing = true;
 
     // mientras siga recibiendo filenames desde app.c, sigue haciendo forks y llamando a md5sum
     while (getFileName(filename))
@@ -69,7 +62,7 @@ int main()
         wait(NULL);
 
         // imprimo el struct salida estandar el resultado de MD5
-        printResult(pipedes[0], thisPid);
+        printResult(pipedes[0]);
         close(pipedes[0]);
     }
 
