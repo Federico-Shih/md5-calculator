@@ -25,10 +25,10 @@ int main(int argc, char const *argv[])
   
   shared_result* shared_mem = mmap(NULL, sizeof(struct shared_result), PROT_READ|PROT_WRITE, MAP_SHARED, shm_fd, 0);
 
-  // Indicate to App that view is connected
+  // Indica a App que la vista esta conectadad
   sem_post(&(shared_mem->semaphore));
 
-  // Let app time to wait the semaphore.
+  // Deja tiempo a app para que espere el semaforo.
   sleep(1);
   do {
     sem_wait(&(shared_mem->semaphore));
