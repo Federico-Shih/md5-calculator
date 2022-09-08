@@ -3,7 +3,7 @@
 int main(int argc, char *argv[])
 {
     if (argc <= 1)
-        errorHandling("Invalid number of arguments");
+        return 0;
 
     
     setvbuf(stdout, NULL, _IONBF, 0); // apaga el buffer
