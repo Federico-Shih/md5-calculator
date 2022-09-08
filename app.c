@@ -89,22 +89,19 @@ void createChilds(int pipedes[][2][2], int childNum, int childPids[])
             errorHandling("pipe");
 
         if ((pid = fork()) == -1)
-        {
             errorHandling("fork");
-        }
+
         // Ejecucion del proceso hijo
-        if (pid == 0)
-        {
+        if (pid == 0){
             dup2(pipedes[i][APPWRITES][READEND], STDIN_FILENO); // hijo lee de STDIN
             close(pipedes[i][APPWRITES][WRITEEND]);
             dup2(pipedes[i][APPREADS][WRITEEND], STDOUT_FILENO); // hijo escribe a STDOUT
             close(pipedes[i][APPREADS][READEND]);
 
-            if (execl(CHILD, CHILD, (char *)NULL) == -1)
+            if (execl(CHILD, CHILD, NULL) == -1)
                 errorHandling("execl");
         }
-        else
-        {
+        else{
             childPids[i] = pid;
         }
         close(pipedes[i][APPREADS][WRITEEND]);
@@ -129,8 +126,7 @@ void processFiles(int childNum, int pipedes[][2][2], int filecount, char *filena
 
     int maxfd, retval;
 
-    while (processing)
-    {
+    while (processing){
         maxfd = loadSet(childNum, &selectfd, pipedes);
         // SELECT: me tengo que fijar que pipedes[i][APPREADS][READEND] este listo para ser leido (porque eso significa que el child ya termino de procesar el file anterior)
         //  quedan dentro de selectfd los fds que estan listos para hacer una tarea
@@ -141,9 +137,9 @@ void processFiles(int childNum, int pipedes[][2][2], int filecount, char *filena
         if (retval == -1){
             errorHandling("select");
         }
-        else{
-            readChildsAndProcess(childNum, retval, &filesReceived, &filesSent, filecount, filenames, &selectfd, pipedes, childPids, fd);
-        }
+        
+        readChildsAndProcess(childNum, retval, &filesReceived, &filesSent, filecount, filenames, &selectfd, pipedes, childPids, fd);
+        
         if (filesReceived == filecount){
             for(int itChild = 0; itChild < childNum; itChild++){
                 if(close(pipedes[itChild][APPWRITES][WRITEEND]) != 0) //se cierra totalmente este pipe-> el hijo recibe EOF al leer-> el hijo interpreta que tiene que morir
@@ -159,8 +155,7 @@ int loadSet(int childNum, fd_set *selectfd, int pipedes[][2][2])
 {
     int currentfd, maxfd = 0;
     FD_ZERO(selectfd);
-    for (int itChild = 0; itChild < childNum; itChild++)
-    {
+    for (int itChild = 0; itChild < childNum; itChild++){
         currentfd = pipedes[itChild][APPREADS][READEND];
         FD_SET(currentfd, selectfd);
         if (currentfd > maxfd)
@@ -172,11 +167,10 @@ int loadSet(int childNum, fd_set *selectfd, int pipedes[][2][2])
 void parseArguments(int argc, char *argv[], int *filecount, char *filenames[])
 {
     struct stat statbuf;
-    int errnum;
+
     for (int i = 1; i < argc; i++)
     {
-        errnum = stat(argv[i], &statbuf);
-        if (errnum != 0 && errno != ENOENT)
+        if (stat(argv[i], &statbuf) != 0 && errno != ENOENT)
         {
             errorHandling("stat");
         }
@@ -185,7 +179,7 @@ void parseArguments(int argc, char *argv[], int *filecount, char *filenames[])
             // si son files los agrego, si son cualquier otra cosa o no existen los descarto
             filenames[(*filecount)++] = argv[i];
         }
-        errno = 0;
+        errno = 0; //si se ingresa un argumento no valido se debe resetear errno a 0
     }
 
     if (*filecount == 0)
@@ -199,7 +193,7 @@ void readFromMD5(int fd, char * hash, int maxHash, char * filename, int maxFilen
         hash[i] = buf;
     }
     hash[i] = 0;
-    read(fd, &buf, 1);
+    read(fd, &buf, 1); //para sacar los espacios innecesarios
     read(fd, &buf, 1);
     for (i = 0; i < maxFilename && read(fd, &buf, 1) > 0 && buf != '\n'; i++){
         filename[i] = buf;

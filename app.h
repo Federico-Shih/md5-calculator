@@ -22,7 +22,6 @@ void readChildsAndProcess(int childNum, int fdNum, int *filesReceived, int* file
 int loadSet(int childNum, fd_set *selectfd, int pipedes[][2][2]);
 void processFiles(int childNum, int pipedes[][2][2], int filecount, char * filenames[], int childPids[], int fd);
 void parseArguments(int argc, char * argv[], int * filecount, char * filenames[]);
-void readUntilWhitespace(int fd, char * dest, int maxlength);
 void readFromMD5(int fd, char * hash, int maxHash, char * filename, int maxFilename);
 
 #endif
