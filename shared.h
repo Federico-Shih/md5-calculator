@@ -2,7 +2,6 @@
 #define SHARED_H_
 
 #define _GNU_SOURCE
-#define _DEFAULT_SOURCE
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -31,16 +30,11 @@
 #define RESULT_FORMAT "%s  %s  %d"
 
 typedef struct result {
-  char filename[NAME_MAX];
+  char filename[MAXLENGTH];
   char hash[HASHSIZE+1];
   pid_t processId;
 } result;
 
-typedef struct shared_result {
-  int size;
-  struct result buffer[MAX_RESULTS];
-  sem_t semaphore;
-} shared_result;
 
 void errorHandling(char* error);
 
