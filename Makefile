@@ -12,4 +12,4 @@ $(MAIN_FILES): %: %.c
 
 .PHONY: clean
 clean:
-	@rm -rf $(MAIN_FILES)
+	@rm -rf $(MAIN_FILES) *.txt

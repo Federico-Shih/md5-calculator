@@ -7,36 +7,36 @@ int main(int argc, char *argv[])
 
     
     setvbuf(stdout, NULL, _IONBF, 0); // apaga el buffer
-    /*
-        int shm_fd;
-        if ((shm_fd = shm_open(SHARED_MEM_DIR, O_RDWR|O_CREAT, S_IRUSR|S_IWUSR)) == -1) {
-            errorHandling("shm_open");
-        }
+    
+    // int shm_fd;
+    // if ((shm_fd = shm_open(SHARED_MEM_DIR, O_RDWR|O_CREAT, S_IRUSR|S_IWUSR)) == -1) {
+    //     errorHandling("shm_open");
+    // }
 
-        if (ftruncate(shm_fd, sizeof(struct shared_result)) == -1) {
-            errorHandling("ftruncate");
-        }
+    // if (ftruncate(shm_fd, sizeof(shared_pipe)) == -1) {
+    //     errorHandling("ftruncate");
+    // }
 
 
-        shared_result* shared_mem = mmap(NULL, sizeof(struct shared_result), PROT_READ|PROT_WRITE, MAP_SHARED, shm_fd, 0);
+    // shared_pipe* shared_mem = mmap(NULL, sizeof(shared_pipe), PROT_READ|PROT_WRITE, MAP_SHARED, shm_fd, 0);
 
-        if (sem_init(&(shared_mem->semaphore), 1, 0) == -1) {
-            errorHandling("sem_init");
-        }
-        printf("%s\n", SHARED_MEM_DIR);
-        struct timespec time;
-        if (clock_gettime(CLOCK_REALTIME, &time) == -1)
-            return -1;
+    // if (sem_init(&(shared_mem->semaphore), 1, 0) == -1) {
+    //     errorHandling("sem_init");
+    // }
+    // printf("%s\n", SHARED_MEM_DIR);
+    // struct timespec time;
+    // if (clock_gettime(CLOCK_REALTIME, &time) == -1)
+    //     return -1;
 
-        time.tv_sec += 10;
-        shared_mem->size = 1;
-        int initializedView = sem_timedwait(&(shared_mem->semaphore), &time);
+    // time.tv_sec += 10;
+    // shared_mem->size = 1;
+    // int initializedView = sem_timedwait(&(shared_mem->semaphore), &time);
 
-        if (initializedView == -1) {
-            sem_post(&(shared_mem->semaphore));
-        }
-        return 4;
-        */
+    // if (initializedView == -1) {
+    //     sem_post(&(shared_mem->semaphore));
+    // }
+    // return 4;
+        
 
     char *filenames[argc - 1]; // archivos a procesar
     int filecount = 0;         // cantidad de archivos a procesar

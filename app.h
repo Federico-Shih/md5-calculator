@@ -3,8 +3,7 @@
 
 
 #include "shared.h"
-#include <semaphore.h>
-#include <time.h>
+#include "shared_memory.h"
 #include <sys/select.h>
 
 #define APPREADS 0 //el pipe que usara app para leer (recibir info de child)
