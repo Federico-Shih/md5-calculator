@@ -65,3 +65,8 @@ delete.c
 
 # Result files
 *.txt
+
+# Pvs-Studio files
+*.tasks
+*.log
+*.lic

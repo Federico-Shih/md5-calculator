@@ -21,7 +21,7 @@
 
 #define MAX_RESULTS 1
 #define SHARED_MEM_DIR "/shared"
-#define SHARED_MEM_MAX_DIR 32
+#define SHARED_MEM_MAX_NAME 32
 
 #define MAXLENGTH 128
 #define HASHSIZE 32
@@ -38,7 +38,7 @@ typedef struct result {
 
 void errorHandling(char* error);
 
-void errorHandling(char* error){
+void errorHandling(char* error) {
     perror(error);
     exit(EXIT_FAILURE);
 }

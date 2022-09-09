@@ -1,43 +1,22 @@
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
+
 #include "app.h"
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
     if (argc <= 1)
         return 0;
 
     
-    setvbuf(stdout, NULL, _IONBF, 0); // apaga el buffer
+    if(setvbuf(stdout, NULL, _IONBF, 0) != 0)
+        errorHandling("setvbuf"); // apaga el buffer
+
+    struct shared_mem memory;
     
-    // int shm_fd;
-    // if ((shm_fd = shm_open(SHARED_MEM_DIR, O_RDWR|O_CREAT, S_IRUSR|S_IWUSR)) == -1) {
-    //     errorHandling("shm_open");
-    // }
-
-    // if (ftruncate(shm_fd, sizeof(shared_pipe)) == -1) {
-    //     errorHandling("ftruncate");
-    // }
+    int viewConnected = !startSharedMem(&memory, SHARED_MEM_NAME);
 
 
-    // shared_pipe* shared_mem = mmap(NULL, sizeof(shared_pipe), PROT_READ|PROT_WRITE, MAP_SHARED, shm_fd, 0);
-
-    // if (sem_init(&(shared_mem->semaphore), 1, 0) == -1) {
-    //     errorHandling("sem_init");
-    // }
-    // printf("%s\n", SHARED_MEM_DIR);
-    // struct timespec time;
-    // if (clock_gettime(CLOCK_REALTIME, &time) == -1)
-    //     return -1;
-
-    // time.tv_sec += 10;
-    // shared_mem->size = 1;
-    // int initializedView = sem_timedwait(&(shared_mem->semaphore), &time);
-
-    // if (initializedView == -1) {
-    //     sem_post(&(shared_mem->semaphore));
-    // }
-    // return 4;
-        
-
+    
     char *filenames[argc - 1]; // archivos a procesar
     int filecount = 0;         // cantidad de archivos a procesar
     parseArguments(argc, argv, &filecount, filenames);
@@ -78,8 +57,7 @@ int main(int argc, char *argv[])
     return 0;
 }
 
-void createChilds(int pipedes[][2][2], int childNum, int childPids[])
-{
+void createChilds(int pipedes[][2][2], int childNum, int childPids[]) {
     pid_t pid;
     for (int i = 0; i < childNum; i++)
     {
@@ -109,8 +87,7 @@ void createChilds(int pipedes[][2][2], int childNum, int childPids[])
     }
 }
 
-void processFiles(int childNum, int pipedes[][2][2], int filecount, char *filenames[], int childPids[], int fd)
-{
+void processFiles(int childNum, int pipedes[][2][2], int filecount, char *filenames[], int childPids[], int fd) {
 
     int filesSent = 0;     // le mande a los hijos para que procesen
     int filesReceived = 0; // los resultados que obtuve de los hijos
@@ -151,8 +128,7 @@ void processFiles(int childNum, int pipedes[][2][2], int filecount, char *filena
     }
 }
 
-int loadSet(int childNum, fd_set *selectfd, int pipedes[][2][2])
-{
+int loadSet(int childNum, fd_set *selectfd, int pipedes[][2][2]) {
     int currentfd, maxfd = 0;
     FD_ZERO(selectfd);
     for (int itChild = 0; itChild < childNum; itChild++){
@@ -164,8 +140,7 @@ int loadSet(int childNum, fd_set *selectfd, int pipedes[][2][2])
     return maxfd;
 }
 
-void parseArguments(int argc, char *argv[], int *filecount, char *filenames[])
-{
+void parseArguments(int argc, char *argv[], int *filecount, char *filenames[]) {
     struct stat statbuf;
 
     for (int i = 1; i < argc; i++)
@@ -186,7 +161,7 @@ void parseArguments(int argc, char *argv[], int *filecount, char *filenames[])
         errorHandling("No valid arguments inserted\n");
 }
 
-void readFromMD5(int fd, char * hash, int maxHash, char * filename, int maxFilename){
+void readFromMD5(int fd, char * hash, int maxHash, char * filename, int maxFilename) {
     char buf;
     int i;
     for (i = 0; i < maxHash && read(fd, &buf, 1) > 0 && buf != ' '; i++){
@@ -201,8 +176,7 @@ void readFromMD5(int fd, char * hash, int maxHash, char * filename, int maxFilen
     filename[i] = 0;
 }
 
-void readChildsAndProcess(int childNum, int fdNum, int *filesReceived, int *filesSent, int filecount, char *filenames[], fd_set *selectfd, int pipedes[][2][2], int childPids[], int fd)
-{
+void readChildsAndProcess(int childNum, int fdNum, int *filesReceived, int *filesSent, int filecount, char *filenames[], fd_set *selectfd, int pipedes[][2][2], int childPids[], int fd) {
     int processedChilds = 0;
     result resStruct;
     bool processing = true;

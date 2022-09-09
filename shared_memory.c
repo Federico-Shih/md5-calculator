@@ -1,92 +1,107 @@
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
+
 #include "shared_memory.h"
 #include "shared.h"
 
 // AGREGAR ERROR HANDLING
 
-struct shared_pipe
-{
-    char *sharedMem;
-    sem_t *viewSemaphore;
-    int index;
-};
+# define CLOCK_REALTIME			0
+extern int clock_gettime (clockid_t __clock_id, struct timespec *__tp) __THROW;
 
-int readSharedPipe(shared_pipe memory, char *buffer);
 
-void writeSharedPipe(shared_pipe memory, const char *buffer, int n)
-{
+
+int readSharedMem(shared_mem memory, char *buffer) {
+    return 0;
 }
 
-int startSharedPipe(shared_pipe memory, const char *mem_address)
-{
+void writeSharedMem(shared_mem memory, const char *buffer, int n) {
+
+    memcpy(memory->sharedMem, buffer, n);
+}
+
+int startSharedMem(shared_mem memory, const char *mem_name) {
     int shmFd;
-    if ((shmFd = shm_open(mem_address, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR)) == -1)
-    {
+    if ((shmFd = shm_open(mem_name, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR)) == -1) {
         errorHandling("shm_open");
     }
 
-    if (ftruncate(shmFd, BUFFER_SIZE) == -1)
-    {
+    if (ftruncate(shmFd, SHARED_MEM_SIZE) == -1){
         errorHandling("ftruncate");
     }
 
-    memory->sharedMem = mmap(NULL, BUFFER_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, shmFd, 0);
-
+    memory->sharedMem = mmap(NULL, SHARED_MEM_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, shmFd, 0);
+    strncpy(memory->sharedMemName, mem_name, SHARED_MEM_MAX_NAME);
     close(shmFd);
 
     // Asigna el semaforo al ADT que el padre usa para comunicar que hay para leer.
-    memory->viewSemaphore = sem_open(SHARED_SEM_DIR, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR, 0);
+    memory->viewSemaphore = sem_open(SHARED_SEM_NAME, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR, 0);
 
     // Abre un semaforo temporal para que view pueda comunicar al padre que se conecto
-    sem_t *appSem = sem_open(SHARED_SEM_DIR_CONNECTION, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR, 1);
+    sem_t *appSem = sem_open(SHARED_SEM_NAME_CONNECTION, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR, 1);
 
     struct timespec time;
     if (clock_gettime(CLOCK_REALTIME, &time) == -1)
-        return -1;
+        errorHandling("clock_gettime");
 
     time.tv_sec += CONNECTION_TIMEOUT;
     int initialized = sem_timedwait(appSem, &time);
 
-    sem_close(appSem);
+    if (sem_close(appSem) != -1)
+        errorHandling("sem_close");
 
-    if (initialized == -1)
-    {
-        cleanSharedPipe(memory);
-    }
+    if(initialized == 0)
+        return 0;
 
-    return (initialized != -1);
+    closeSharedMem(memory);
+
+    if (errno != ETIMEDOUT) //si hubo un error ejecutando sem_timedwait
+        perror("sem_timedwait");
+
+    return -1;
 }
 
-int connectSharedPipe(shared_pipe memory, const char *mem_address)
-{
+int connectSharedMem(shared_mem memory, const char * mem_name) {
     int shmFd;
-    if ((shmFd = shm_open(mem_address, O_RDWR, S_IRUSR | S_IWUSR)) == -1)
-    {
+    if ((shmFd = shm_open(mem_name, O_RDWR, S_IRUSR | S_IWUSR)) == -1){
         errorHandling("connectSHM");
     }
 
-    memory->sharedMem = mmap(NULL, BUFFER_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, shmFd, 0);
+    memory->sharedMem = mmap(NULL, SHARED_MEM_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, shmFd, 0);
     close(shmFd);
 
-    sem_t *appSem = sem_open(SHARED_SEM_DIR_CONNECTION, O_RDWR);
+    sem_t *appSem = sem_open(SHARED_SEM_NAME_CONNECTION, O_RDWR);
+    if(appSem == SEM_FAILED){
+        closeSharedMem(memory);
+        errorHandling("sem_open");
+    }
 
     // Avisa al padre que se conecto.
-    sem_post(appSem);
+    if(sem_post(appSem)!= -1){
+        closeSharedMem(memory);
+        errorHandling("sem_post");
+    }
 
     // Abre el semaforo para que se puedan conectar
-    memory->viewSemaphore = sem_open(SHARED_SEM_DIR, O_RDWR);
+    sem_t * address = sem_open(SHARED_SEM_NAME, O_RDWR);
+    if(address == SEM_FAILED){
+        closeSharedMem(memory);
+        errorHandling("sem_open");
+    }
+    
+    memory->viewSemaphore = address;
 
     return 1;
 }
 
-void cleanSharedPipe(shared_pipe memory)
-{
-    munmap(memory->sharedMem, sizeof(struct shared_pipe));
+void cleanSharedMem(shared_mem memory) {
+    munmap(memory->sharedMem, sizeof(struct shared_mem));
     sem_close(memory->viewSemaphore);
-}
+    shm_unlink(memory->sharedMemName); 
+}  
 
-int closeSharedPipe(shared_pipe memory)
-{
-    writeSharedPipe(memory, "\0", 1);
-    cleanSharedPipe(memory);
+int closeSharedMem(shared_mem memory) {
+    writeSharedMem(memory, "\0", 1);
+    cleanSharedMem(memory);
     return 1;
 }

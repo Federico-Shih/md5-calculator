@@ -1,10 +1,13 @@
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
+
 #include "shared.h"
 #include <stdio.h>
 
 #define MD5 "md5sum"
 
 //devuelve en buffer el filename para pasarle a md5sum como argumento. Si recibe EOF hace que el child termine.
-int getFileName(char * buffer){
+int getFileName(char * buffer) {
     char buf[1];
     bool reading = true;
     size_t i;
@@ -24,8 +27,7 @@ int getFileName(char * buffer){
     return 1;
 }
 
-int main()
-{
+int main() {
 
     char filename[MAXLENGTH]; // leerlo del pipe
 
