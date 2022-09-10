@@ -1,3 +1,6 @@
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
+
 #ifndef SHARED_H_
 #define SHARED_H_
 
@@ -29,7 +32,7 @@
 
 #define LINE_FORMAT "Filename:%s, PID:%d, Hash:%s\n"
 
-#define MAXLINE MAXLENGTH + HASHSIZE + MAX_PID + 24
+#define MAXLINE (MAXLENGTH + HASHSIZE + MAX_PID + 24)
 
 typedef struct result {
   char filename[MAXLENGTH];

@@ -103,15 +103,13 @@ void processFiles(int childNum, int pipedes[][2][2], int filecount, char *filena
     fd_set selectfd;
     bool processing = true;
 
-    int maxfd, retval;
-
     while (processing){
-        maxfd = loadSet(childNum, &selectfd, pipedes);
+        int maxfd = loadSet(childNum, &selectfd, pipedes);
         // SELECT: me tengo que fijar que pipedes[i][APPREADS][READEND] este listo para ser leido (porque eso significa que el child ya termino de procesar el file anterior)
         //  quedan dentro de selectfd los fds que estan listos para hacer una tarea
 
         // retval vale la cantidad de hijos disponibles
-        retval = select(maxfd + 1, &selectfd, NULL, NULL, NULL);
+        int retval = select(maxfd + 1, &selectfd, NULL, NULL, NULL);
 
         if (retval == -1){
             errorHandling("select");
@@ -131,10 +129,10 @@ void processFiles(int childNum, int pipedes[][2][2], int filecount, char *filena
 }
 
 int loadSet(int childNum, fd_set *selectfd, int pipedes[][2][2]) {
-    int currentfd, maxfd = 0;
+    int maxfd = 0;
     FD_ZERO(selectfd);
     for (int itChild = 0; itChild < childNum; itChild++){
-        currentfd = pipedes[itChild][APPREADS][READEND];
+        int currentfd = pipedes[itChild][APPREADS][READEND];
         FD_SET(currentfd, selectfd);
         if (currentfd > maxfd)
             maxfd = currentfd;

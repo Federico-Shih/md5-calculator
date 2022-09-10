@@ -3,8 +3,9 @@
 
 #include "shared_memory.h"
 #include "shared.h"
+#include <stdio.h>
 
-// AGREGAR ERROR HANDLING
+
 struct sharedMemCDT
 {
     char sharedMemName[SHARED_MEM_MAX_NAME];
@@ -14,15 +15,16 @@ struct sharedMemCDT
 };
 
 int readSharedMem(sharedMemADT memory, char *buffer) {
-    // Wait for data to be available
+    // Espera a que hayan datos disponibles
     sem_wait(memory->viewSemaphore);
 
-    // i for writing buffer, end to terminate loop, no_lines to tell reader
+    //i para escribir el buffer, no_lines indica a la funcion lectora(readSharedMem) cuando dejar de leer
     int i, no_lines = 0;
     for (i = 0; i < MAXLINE; i += 1) {
         char c = memory->sharedMem[memory->index + i];
         if (c == '\n' || c == '\0') {
-            if (c == '\0') no_lines = 1;
+            if (c == '\0') 
+                no_lines = 1;
             break;
         } else {
             buffer[i] = c;
@@ -34,7 +36,7 @@ int readSharedMem(sharedMemADT memory, char *buffer) {
     return !no_lines;
 }
 
-// Consider prevent writing if child was not connected
+// Considerar escritura preventiva si el hijo no se conecto
 void writeSharedMem(sharedMemADT memory, const char *buffer, int n) {
     for (int i = 0; i < n; i += 1) {
         memory->sharedMem[memory->index + i] = buffer[i];
@@ -95,7 +97,7 @@ int connectSharedMem(sharedMemADT memory, const char * mem_name) {
     close(shmFd);
 
     sem_t *appSem = sem_open(SHARED_SEM_NAME_CONNECTION, O_RDWR);
-    if(appSem == SEM_FAILED){
+    if((appSem == SEM_FAILED) | (appSem == NULL)){              // warning de pvs. agregado parentesis y == null
         disconnectSharedMem(memory);
         freeSharedMem(memory);
         errorHandling("sem_open");
@@ -123,6 +125,7 @@ int connectSharedMem(sharedMemADT memory, const char * mem_name) {
 
 void disconnectSharedMem(sharedMemADT memory) {
     shm_unlink(memory->sharedMemName); 
+    fprintf(stderr, "se llamo a unlink\n");
 }  
 
 int closeSharedMem(sharedMemADT memory) {
@@ -132,7 +135,12 @@ int closeSharedMem(sharedMemADT memory) {
 
 sharedMemADT initSharedMem() {
     sharedMemADT ret = malloc(sizeof(struct sharedMemCDT));
-    ret->index = 0;
+    if(ret == NULL){                // warning de pvs, posible desreferenceo de null
+        errorHandling("malloc");
+    }
+    else{
+        ret->index = 0;
+    }
     return ret;
 }
 
