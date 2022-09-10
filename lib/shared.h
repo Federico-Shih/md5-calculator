@@ -27,6 +27,10 @@
 #define HASHSIZE 32
 #define MAX_PID 6 //porque el maximo pid posible es 32768
 
+#define LINE_FORMAT "Filename:%s, PID:%d, Hash:%s\n"
+
+#define MAXLINE MAXLENGTH + HASHSIZE + MAX_PID + 24
+
 typedef struct result {
   char filename[MAXLENGTH];
   char hash[HASHSIZE+1];

@@ -12,7 +12,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 
-#define CONNECTION_TIMEOUT 10
+#define CONNECTION_TIMEOUT 2
 #define SHARED_MEM_SIZE 2048
 #define SHARED_MEM_NAME "/shared"
 #define SHARED_MEM_MAX_NAME 32
@@ -28,7 +28,7 @@ sharedMemADT initSharedMem();
 void freeSharedMem(sharedMemADT memory);
 
 /*    
-    Lee hasta encontrar un '\n'. Si encuentra un '\0' significa que la memoria compartida fue cerrada.    
+    Lee hasta encontrar un \n. Si encuentra un \0 significa que la memoria compartida fue cerrada.    
     Se pausa la lectura si no hay nada para leer. 
     Devuelve 1 si todavia hay datos por leer, 0 en el caso contrario. 
 */

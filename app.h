@@ -20,9 +20,9 @@
 
 void createChilds(int pipedes[][2][2], int childNum, int childPids[]);
 void errorHandling(char* error);
-void readChildsAndProcess(int childNum, int fdNum, int *filesReceived, int* filesSent, int filecount, char* filenames[], fd_set *selectfd, int pipedes[][2][2], int childPids[], int fd);
+void readChildsAndProcess(int childNum, int fdNum, int *filesReceived, int* filesSent, int filecount, char* filenames[], fd_set *selectfd, int pipedes[][2][2], int childPids[], int fd, sharedMemADT memory);
 int loadSet(int childNum, fd_set *selectfd, int pipedes[][2][2]);
-void processFiles(int childNum, int pipedes[][2][2], int filecount, char * filenames[], int childPids[], int fd);
+void processFiles(int childNum, int pipedes[][2][2], int filecount, char * filenames[], int childPids[], int fd, sharedMemADT memory);
 void parseArguments(int argc, char * argv[], int * filecount, char * filenames[]);
 void readFromMD5(int fd, char * hash, int maxHash, char * filename, int maxFilename);
 

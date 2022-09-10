@@ -1,20 +1,20 @@
 // This is a personal academic project. Dear PVS-Studio, please check it.
 // PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
 
+#include "lib/shared.h"
 #include "app.h"
 
 int main(int argc, char *argv[]) {
     if (argc <= 1)
         return 0;
-
     
     if(setvbuf(stdout, NULL, _IONBF, 0) != 0)
         errorHandling("setvbuf"); // apaga el buffer
 
     sharedMemADT memory = initSharedMem();
     
+    printf("%s\n", SHARED_MEM_NAME);
     int viewConnected = startSharedMem(memory, SHARED_MEM_NAME);
-    return 1;
 
     char *filenames[argc - 1]; // archivos a procesar
     int filecount = 0;         // cantidad de archivos a procesar
@@ -39,7 +39,7 @@ int main(int argc, char *argv[]) {
         errorHandling("open");
 
     // asigna files a procesar a todos los hijos disponibles hasta que todos los files esten procesados
-    processFiles(childNum, pipedes, filecount, filenames, childPids, fd);
+    processFiles(childNum, pipedes, filecount, filenames, childPids, fd, memory);
 
     //espero a que terminen todos los hijos
     while (wait(NULL) > 0){}
@@ -50,7 +50,11 @@ int main(int argc, char *argv[]) {
     }
     close(fd);
 
-    free(memory);
+    if (!viewConnected) {
+        disconnectSharedMem(memory);
+    }
+
+    freeSharedMem(memory);
 
     return 0;
 }
@@ -85,7 +89,7 @@ void createChilds(int pipedes[][2][2], int childNum, int childPids[]) {
     }
 }
 
-void processFiles(int childNum, int pipedes[][2][2], int filecount, char *filenames[], int childPids[], int fd) {
+void processFiles(int childNum, int pipedes[][2][2], int filecount, char *filenames[], int childPids[], int fd, sharedMemADT memory) {
 
     int filesSent = 0;     // le mande a los hijos para que procesen
     int filesReceived = 0; // los resultados que obtuve de los hijos
@@ -113,7 +117,7 @@ void processFiles(int childNum, int pipedes[][2][2], int filecount, char *filena
             errorHandling("select");
         }
         
-        readChildsAndProcess(childNum, retval, &filesReceived, &filesSent, filecount, filenames, &selectfd, pipedes, childPids, fd);
+        readChildsAndProcess(childNum, retval, &filesReceived, &filesSent, filecount, filenames, &selectfd, pipedes, childPids, fd, memory);
         
         if (filesReceived == filecount){
             for(int itChild = 0; itChild < childNum; itChild++){
@@ -174,7 +178,7 @@ void readFromMD5(int fd, char * hash, int maxHash, char * filename, int maxFilen
     filename[i] = 0;
 }
 
-void readChildsAndProcess(int childNum, int fdNum, int *filesReceived, int *filesSent, int filecount, char *filenames[], fd_set *selectfd, int pipedes[][2][2], int childPids[], int fd) {
+void readChildsAndProcess(int childNum, int fdNum, int *filesReceived, int *filesSent, int filecount, char *filenames[], fd_set *selectfd, int pipedes[][2][2], int childPids[], int fd, sharedMemADT memory) {
     int processedChilds = 0;
     result resStruct;
     bool processing = true;
@@ -184,10 +188,16 @@ void readChildsAndProcess(int childNum, int fdNum, int *filesReceived, int *file
     {
         if (FD_ISSET(pipedes[itChild][APPREADS][READEND], selectfd))
         {
-            readFromMD5(pipedes[itChild][APPREADS][READEND], resStruct.hash, HASHSIZE, resStruct.filename, 128);
+            readFromMD5(pipedes[itChild][APPREADS][READEND], resStruct.hash, HASHSIZE, resStruct.filename, MAXLENGTH);
             resStruct.processId = childPids[itChild];
 
-            dprintf(fd, "Filename:%s, PID:%d, Hash:%s\n", resStruct.filename, resStruct.processId, resStruct.hash);
+            char buffer[MAXLINE];
+            int n = sprintf(buffer, LINE_FORMAT, resStruct.filename, resStruct.processId, resStruct.hash);
+
+            // TODO: quiza integrar el dprintf al writeSharedMem. Reusar el sprintf
+            dprintf(fd, LINE_FORMAT, resStruct.filename, resStruct.processId, resStruct.hash);
+            // fprintf(stderr, LINE_FORMAT, resStruct.filename, resStruct.processId, resStruct.hash);
+            writeSharedMem(memory, buffer, n);
 
             (*filesReceived)++;
 

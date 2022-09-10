@@ -4,8 +4,6 @@
 #include "shared_memory.h"
 #include "shared.h"
 
-#define MAXLINE MAXLENGTH + HASHSIZE + MAX_PID + 4
-
 // AGREGAR ERROR HANDLING
 struct sharedMemCDT
 {
@@ -20,22 +18,23 @@ int readSharedMem(sharedMemADT memory, char *buffer) {
     sem_wait(memory->viewSemaphore);
 
     // i for writing buffer, end to terminate loop, no_lines to tell reader
-    int i, end = 0, no_lines = 0;
-    for (i = 0; i < MAXLINE && !end; i += 1) {
+    int i, no_lines = 0;
+    for (i = 0; i < MAXLINE; i += 1) {
         char c = memory->sharedMem[memory->index + i];
         if (c == '\n' || c == '\0') {
-            end = 1;
             if (c == '\0') no_lines = 1;
+            break;
         } else {
             buffer[i] = c;
         }
     }
-    memory->index += i;
+    memory->index += i + 1;
     buffer[i] = '\0';
 
     return !no_lines;
 }
 
+// Consider prevent writing if child was not connected
 void writeSharedMem(sharedMemADT memory, const char *buffer, int n) {
     for (int i = 0; i < n; i += 1) {
         memory->sharedMem[memory->index + i] = buffer[i];
@@ -72,23 +71,21 @@ int startSharedMem(sharedMemADT memory, const char *mem_name) {
         errorHandling("clock_gettime");
 
     time.tv_sec += CONNECTION_TIMEOUT;
-
+    
     int initialized = sem_timedwait(appSem, &time);
 
-    if(initialized == 0)
-        return 1;
+    if(initialized == -1) {
+        disconnectSharedMem(memory);
+        if (errno != ETIMEDOUT) //si hubo un error ejecutando sem_timedwait
+            perror("sem_timedwait");
+        return 0;
+    }
 
-    disconnectSharedMem(memory);
-
-    if (errno != ETIMEDOUT) //si hubo un error ejecutando sem_timedwait
-        perror("sem_timedwait");
-
-    return 0;
+    return 1;
 }
 
 int connectSharedMem(sharedMemADT memory, const char * mem_name) {
     int shmFd;
-    printf("%s\n", mem_name);
     if ((shmFd = shm_open(mem_name, O_RDWR, S_IRUSR | S_IWUSR)) == -1){
         errorHandling("connectSHM");
     }
@@ -103,9 +100,9 @@ int connectSharedMem(sharedMemADT memory, const char * mem_name) {
         freeSharedMem(memory);
         errorHandling("sem_open");
     }
-
+    
     // Avisa al padre que se conecto.
-    if(sem_post(appSem)!= -1){
+    if(sem_post(appSem) == -1){
         disconnectSharedMem(memory);
         freeSharedMem(memory);
         errorHandling("sem_post");

@@ -21,15 +21,12 @@ int main(int argc, char const *argv[]) {
   sharedMemADT memory = initSharedMem();
   connectSharedMem(memory, mem_dir);
 
-  sleep(1);
-  // do {
-  //   sem_wait(&(shared_mem->semaphore));
-  //   for (int i = 0; i < shared_mem->size; i += 1) {
-  //     printf("FILENAME=%s HASH=%s PID=%d\n", shared_mem->buffer[i].filename, shared_mem->buffer[i].hash, shared_mem->buffer[i].processId);
-  //   }
-  // } while (shared_mem->size != 0);
+  char buffer[MAXLINE];
 
-  // munmap(shared_mem, sizeof(struct shared_result));
+  while (readSharedMem(memory, buffer)) {
+    printf("%s\n", buffer);
+  }
+
   disconnectSharedMem(memory);
   freeSharedMem(memory);
   exit(0);
