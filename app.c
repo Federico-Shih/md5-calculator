@@ -11,12 +11,11 @@ int main(int argc, char *argv[]) {
     if(setvbuf(stdout, NULL, _IONBF, 0) != 0)
         errorHandling("setvbuf"); // apaga el buffer
 
-    struct shared_mem memory;
+    sharedMemADT memory = initSharedMem();
     
-    int viewConnected = !startSharedMem(&memory, SHARED_MEM_NAME);
+    int viewConnected = startSharedMem(memory, SHARED_MEM_NAME);
+    return 1;
 
-
-    
     char *filenames[argc - 1]; // archivos a procesar
     int filecount = 0;         // cantidad de archivos a procesar
     parseArguments(argc, argv, &filecount, filenames);
@@ -26,9 +25,11 @@ int main(int argc, char *argv[]) {
         childNum = filecount / 20 + 3; // algoritmo avanzado que define la cantidad de hijos a crear
     else
         childNum = filecount;
+    
     // pipedes[childNum][APPWRITES o APPREADS] representa el pipe en el que escribe o lee app
     int pipedes[childNum][2][2];
     int childPids[childNum];
+
     // crea pipes e hijos
     createChilds(pipedes, childNum, childPids);
 
@@ -48,11 +49,8 @@ int main(int argc, char *argv[]) {
         close(pipedes[itChild][APPREADS][READEND]);
     }
     close(fd);
-    // sem_close(&(shared_mem->semaphore));
-    // munmap(shared_mem, sizeof(shared_result));
-    // close(shm_fd);
 
-    
+    free(memory);
 
     return 0;
 }
@@ -186,7 +184,7 @@ void readChildsAndProcess(int childNum, int fdNum, int *filesReceived, int *file
     {
         if (FD_ISSET(pipedes[itChild][APPREADS][READEND], selectfd))
         {
-            readFromMD5(pipedes[itChild][APPREADS][READEND], resStruct.hash, HASHSIZE, resStruct.filename, NAME_MAX);
+            readFromMD5(pipedes[itChild][APPREADS][READEND], resStruct.hash, HASHSIZE, resStruct.filename, 128);
             resStruct.processId = childPids[itChild];
 
             dprintf(fd, "Filename:%s, PID:%d, Hash:%s\n", resStruct.filename, resStruct.processId, resStruct.hash);

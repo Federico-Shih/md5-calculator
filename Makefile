@@ -1,7 +1,7 @@
 CC=gcc
 GCCFLAGS = -g -Wall -std=c99 #sacar el -g !!!
 GCCLIBS = -lrt -lpthread
-FILES = shared_memory.c
+FILES = lib/*.c
 MAIN_FILES = app view child
 
 

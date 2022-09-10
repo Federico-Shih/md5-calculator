@@ -27,8 +27,6 @@
 #define HASHSIZE 32
 #define MAX_PID 6 //porque el maximo pid posible es 32768
 
-#define RESULT_FORMAT "%s  %s  %d"
-
 typedef struct result {
   char filename[MAXLENGTH];
   char hash[HASHSIZE+1];
@@ -38,9 +36,5 @@ typedef struct result {
 
 void errorHandling(char* error);
 
-void errorHandling(char* error) {
-    perror(error);
-    exit(EXIT_FAILURE);
-}
 
 #endif

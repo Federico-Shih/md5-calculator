@@ -1,10 +1,13 @@
 #ifndef APP_H_
 #define APP_H_
 
+#define _POSIX_C_SOURCE 200809L
 
-#include "shared.h"
-#include "shared_memory.h"
 #include <sys/select.h>
+#include <limits.h>
+
+#include "lib/shared.h"
+#include "lib/shared_memory.h"
 
 #define APPREADS 0 //el pipe que usara app para leer (recibir info de child)
 #define APPWRITES 1 //el pipe que usara app para escribir (enviar info a child)

@@ -4,23 +4,49 @@
 #include "shared_memory.h"
 #include "shared.h"
 
+#define MAXLINE MAXLENGTH + HASHSIZE + MAX_PID + 4
+
 // AGREGAR ERROR HANDLING
+struct sharedMemCDT
+{
+    char sharedMemName[SHARED_MEM_MAX_NAME];
+    char *sharedMem;
+    sem_t *viewSemaphore;
+    int index;
+};
 
-# define CLOCK_REALTIME			0
-extern int clock_gettime (clockid_t __clock_id, struct timespec *__tp) __THROW;
+int readSharedMem(sharedMemADT memory, char *buffer) {
+    // Wait for data to be available
+    sem_wait(memory->viewSemaphore);
 
+    // i for writing buffer, end to terminate loop, no_lines to tell reader
+    int i, end = 0, no_lines = 0;
+    for (i = 0; i < MAXLINE && !end; i += 1) {
+        char c = memory->sharedMem[memory->index + i];
+        if (c == '\n' || c == '\0') {
+            end = 1;
+            if (c == '\0') no_lines = 1;
+        } else {
+            buffer[i] = c;
+        }
+    }
+    memory->index += i;
+    buffer[i] = '\0';
 
-
-int readSharedMem(shared_mem memory, char *buffer) {
-    return 0;
+    return !no_lines;
 }
 
-void writeSharedMem(shared_mem memory, const char *buffer, int n) {
-
-    memcpy(memory->sharedMem, buffer, n);
+void writeSharedMem(sharedMemADT memory, const char *buffer, int n) {
+    for (int i = 0; i < n; i += 1) {
+        memory->sharedMem[memory->index + i] = buffer[i];
+        if (buffer[i] == '\n' || buffer[i] == '\0') {
+            sem_post(memory->viewSemaphore);
+        }
+    }
+    memory->index += n;
 }
 
-int startSharedMem(shared_mem memory, const char *mem_name) {
+int startSharedMem(sharedMemADT memory, const char *mem_name) {
     int shmFd;
     if ((shmFd = shm_open(mem_name, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR)) == -1) {
         errorHandling("shm_open");
@@ -32,6 +58,7 @@ int startSharedMem(shared_mem memory, const char *mem_name) {
 
     memory->sharedMem = mmap(NULL, SHARED_MEM_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, shmFd, 0);
     strncpy(memory->sharedMemName, mem_name, SHARED_MEM_MAX_NAME);
+    memory->index = 0;
     close(shmFd);
 
     // Asigna el semaforo al ADT que el padre usa para comunicar que hay para leer.
@@ -45,47 +72,50 @@ int startSharedMem(shared_mem memory, const char *mem_name) {
         errorHandling("clock_gettime");
 
     time.tv_sec += CONNECTION_TIMEOUT;
+
     int initialized = sem_timedwait(appSem, &time);
 
-    if (sem_close(appSem) != -1)
-        errorHandling("sem_close");
-
     if(initialized == 0)
-        return 0;
+        return 1;
 
-    closeSharedMem(memory);
+    disconnectSharedMem(memory);
 
     if (errno != ETIMEDOUT) //si hubo un error ejecutando sem_timedwait
         perror("sem_timedwait");
 
-    return -1;
+    return 0;
 }
 
-int connectSharedMem(shared_mem memory, const char * mem_name) {
+int connectSharedMem(sharedMemADT memory, const char * mem_name) {
     int shmFd;
+    printf("%s\n", mem_name);
     if ((shmFd = shm_open(mem_name, O_RDWR, S_IRUSR | S_IWUSR)) == -1){
         errorHandling("connectSHM");
     }
 
     memory->sharedMem = mmap(NULL, SHARED_MEM_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, shmFd, 0);
+    memory->index = 0;
     close(shmFd);
 
     sem_t *appSem = sem_open(SHARED_SEM_NAME_CONNECTION, O_RDWR);
     if(appSem == SEM_FAILED){
-        closeSharedMem(memory);
+        disconnectSharedMem(memory);
+        freeSharedMem(memory);
         errorHandling("sem_open");
     }
 
     // Avisa al padre que se conecto.
     if(sem_post(appSem)!= -1){
-        closeSharedMem(memory);
+        disconnectSharedMem(memory);
+        freeSharedMem(memory);
         errorHandling("sem_post");
     }
 
     // Abre el semaforo para que se puedan conectar
     sem_t * address = sem_open(SHARED_SEM_NAME, O_RDWR);
     if(address == SEM_FAILED){
-        closeSharedMem(memory);
+        disconnectSharedMem(memory);
+        freeSharedMem(memory);
         errorHandling("sem_open");
     }
     
@@ -94,14 +124,23 @@ int connectSharedMem(shared_mem memory, const char * mem_name) {
     return 1;
 }
 
-void cleanSharedMem(shared_mem memory) {
-    munmap(memory->sharedMem, sizeof(struct shared_mem));
-    sem_close(memory->viewSemaphore);
+void disconnectSharedMem(sharedMemADT memory) {
     shm_unlink(memory->sharedMemName); 
 }  
 
-int closeSharedMem(shared_mem memory) {
+int closeSharedMem(sharedMemADT memory) {
     writeSharedMem(memory, "\0", 1);
-    cleanSharedMem(memory);
     return 1;
+}
+
+sharedMemADT initSharedMem() {
+    sharedMemADT ret = malloc(sizeof(struct sharedMemCDT));
+    ret->index = 0;
+    return ret;
+}
+
+void freeSharedMem(sharedMemADT memory) {
+    munmap(memory->sharedMem, SHARED_MEM_SIZE);
+    sem_close(memory->viewSemaphore);
+    free(memory);
 }
