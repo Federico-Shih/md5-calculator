@@ -2,44 +2,29 @@
 // PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
 
 #include "lib/shared.h"
-#include <stdio.h>
+#include "child.h"
 
 #define MD5 "md5sum"
+#define S_(x) #x
+#define S(x) S_(x)
 
-//devuelve en buffer el filename para pasarle a md5sum como argumento. Si recibe EOF hace que el child termine.
-int getFileName(char * buffer) {
-    char buf[1];
-    bool reading = true;
-    size_t i;
-    for (i = 0; i < MAXLENGTH && reading; ){
-        if(read(STDIN_FILENO, buf, 1) == 0){ //si se recibe EOF -> el hijo muere
-            return 0;
-        }
-        if(*buf == '\n'){ //se termino de leer el nombre
-            reading = false;
-        }
-        else{
-            buffer[i] = *buf;
-            i++;
-        }
-    }
-    buffer[i] = 0;
-    return 1;
-}
+int main()
+{
 
-int main() {
-
-    char filename[MAXLENGTH]; // leerlo del pipe
-
+    char filename[MAX_FILENAME + 1]; // leerlo del pipe
     pid_t pid;
 
     // mientras siga recibiendo filenames desde app.c, sigue haciendo forks y llamando a md5sum
-    while (getFileName(filename))
-    {   
+    while (scanf("%" S(MAX_FILENAME) "s", filename) != EOF)
+    {
         if ((pid = fork()) < 0)
             exit(1);
-        else if(pid == 0){
-            execlp(MD5, MD5, filename, NULL);
+        else if (pid == 0)
+        {
+            // Necesario para evitar tainted data de PVS
+            char *fn = strdup(filename);
+            execlp(MD5, MD5, fn, NULL);
+            free(fn);
         }
         wait(NULL);
     }

@@ -8,40 +8,28 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/types.h>
-#include <semaphore.h>
-#include <sys/mman.h>
 #include <stdbool.h>
-#include <errno.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include <time.h>
 #include <string.h>
-#include <limits.h>
 #include <sys/wait.h>
 
 #define MAX_RESULTS 1
 #define SHARED_MEM_DIR "/shared"
 #define SHARED_MEM_MAX_NAME 32
 
-#define MAXLENGTH 128
+// https://stackoverflow.com/questions/65174086/is-there-any-difference-between-filename-max-and-path-max-in-c
+#define MAX_FILENAME 1024
 #define HASHSIZE 32
-#define MAX_PID 6 //porque el maximo pid posible es 32768
+#define MAX_PID 6 // porque el maximo pid posible es 32768
 
-#define LINE_FORMAT "Filename:%s, PID:%d, Hash:%s\n"
+#define MAXLINE (MAX_FILENAME + HASHSIZE + MAX_PID + 24)
 
-#define MAXLINE (MAXLENGTH + HASHSIZE + MAX_PID + 24)
-
-typedef struct result {
-  char filename[MAXLENGTH];
-  char hash[HASHSIZE+1];
+typedef struct result
+{
+  char filename[MAX_FILENAME];
+  char hash[HASHSIZE + 1];
   pid_t processId;
 } result;
 
-
-void errorHandling(char* error);
-
+void errorHandling(char *error);
 
 #endif
