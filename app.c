@@ -1,7 +1,6 @@
 // This is a personal academic project. Dear PVS-Studio, please check it.
 // PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
 
-#include "lib/shared.h"
 #include "app.h"
 
 int main(int argc, char *argv[])
@@ -12,21 +11,14 @@ int main(int argc, char *argv[])
     if (setvbuf(stdout, NULL, _IONBF, 0) != 0)
         errorHandling("setvbuf"); // apaga el buffer
 
-    sharedMemADT memory = initSharedMem();
-
-    int viewConnected = startSharedMem(memory, SHARED_MEM_NAME);
-
     char *filenames[argc - 1]; // archivos a procesar
     int filecount = 0;         // cantidad de archivos a procesar
+
     int parsed = parseArguments(argc, argv, &filecount, filenames);
 
     if (parsed)
     {
-        int childNum;
-        if (filecount >= 3)
-            childNum = filecount / 20 + 3; // algoritmo avanzado que define la cantidad de hijos a crear
-        else
-            childNum = filecount;
+        int childNum = filecount / FILES_PER_CHILD + MIN_CHILD;
 
         // pipedes[childNum][APPWRITES o APPREADS] representa el pipe en el que escribe o lee app
         int pipedes[childNum][2][2];
@@ -38,7 +30,12 @@ int main(int argc, char *argv[])
         // creacion del archivo en donde se guardaran los resultados
         int fd = open("results.txt", O_RDWR | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
         if (fd < 0)
+        {
             errorHandling("open");
+        }
+
+        sharedMemADT memory = initSharedMem();
+        startSharedMem(memory, SHARED_MEM_NAME);
 
         // asigna files a procesar a todos los hijos disponibles hasta que todos los files esten procesados
         processFiles(childNum, pipedes, filecount, filenames, childPids, fd, memory);
@@ -54,19 +51,13 @@ int main(int argc, char *argv[])
         }
         close(fd);
 
-        if (!viewConnected)
-        {
-            fprintf(stderr, "Desconecta padre\n");
-            disconnectSharedMem(memory);
-        }
+        fprintf(stderr, "Desconecta padre\n");
+        closeSharedMem(memory);
+        disconnectSharedMem(memory);
+        freeSharedMem(memory);
     }
     else
-    {
-        errorHandling("Could not parse arguments");
-    }
-    closeSharedMem(memory);
-    freeSharedMem(memory);
-
+        fprintf(stderr, "No files to process\n");
     return 0;
 }
 
@@ -105,42 +96,63 @@ void createChilds(int pipedes[][2][2], int childNum, int childPids[])
 
 void processFiles(int childNum, int pipedes[][2][2], int filecount, char *filenames[], int childPids[], int fd, sharedMemADT memory)
 {
-
     int filesSent = 0;     // le mande a los hijos para que procesen
     int filesReceived = 0; // los resultados que obtuve de los hijos
 
+    fd_set selectfd;
+    bool processing = true;
+
     // ocupo a todos los hijos
-    for (int itChild = 0; itChild < childNum; itChild++)
+    for (int itChild = 0; itChild < childNum && filesSent < filecount; itChild++)
     {
         dprintf(pipedes[itChild][APPWRITES][WRITEEND], "%s\n", filenames[filesSent]);
         filesSent++;
     }
 
-    fd_set selectfd;
-    bool processing = true;
-
     while (processing)
     {
         int maxfd = loadSet(childNum, &selectfd, pipedes);
-        // SELECT: me tengo que fijar que pipedes[i][APPREADS][READEND] este listo para ser leido (porque eso significa que el child ya termino de procesar el file anterior)
-        //  quedan dentro de selectfd los fds que estan listos para hacer una tarea
-
-        // retval vale la cantidad de hijos disponibles
         int retval = select(maxfd + 1, &selectfd, NULL, NULL, NULL);
 
         if (retval == -1)
         {
+            freeSharedMem(memory);
             errorHandling("select");
         }
 
-        readChildsAndProcess(childNum, retval, &filesReceived, &filesSent, filecount, filenames, &selectfd, pipedes, childPids, fd, memory);
+        int processedChilds = 0;
+        bool running = true;
+
+        // iteracion por todos los hijos para saber cuales estan disponibles para trabajar
+        for (int itChild = 0; itChild < childNum && running; itChild++)
+        {
+            if (FD_ISSET(pipedes[itChild][APPREADS][READEND], &selectfd))
+            {
+                readAndProcess(pipedes[itChild][APPREADS][READEND], childPids[itChild], fd, memory);
+
+                filesReceived++;
+
+                // enviar nueva tanda de filenames
+                if (filesSent < filecount)
+                {
+                    dprintf(pipedes[itChild][APPWRITES][WRITEEND], "%s\n", filenames[filesSent]);
+                    filesSent++;
+                }
+                if (++processedChilds == retval) // para evitar ciclos innecesarios
+                    running = false;
+            }
+        }
 
         if (filesReceived == filecount)
         {
             for (int itChild = 0; itChild < childNum; itChild++)
             {
-                if (close(pipedes[itChild][APPWRITES][WRITEEND]) != 0) // se cierra totalmente este pipe-> el hijo recibe EOF al leer-> el hijo interpreta que tiene que morir
+                // se cierra totalmente este pipe-> el hijo recibe EOF al leer-> el hijo interpreta que tiene que morir
+                if (close(pipedes[itChild][APPWRITES][WRITEEND]) != 0)
+                {
+                    freeSharedMem(memory);
                     errorHandling("close");
+                }
             }
             processing = false;
         }
@@ -202,37 +214,16 @@ void readFromMD5(int fd, char *hash, int maxHash, char *filename, int maxFilenam
     filename[i] = 0;
 }
 
-void readChildsAndProcess(int childNum, int fdNum, int *filesReceived, int *filesSent, int filecount, char *filenames[], fd_set *selectfd, int pipedes[][2][2], int childPids[], int fd, sharedMemADT memory)
+void readAndProcess(int readFd, int childPid, int destFd, sharedMemADT destMemory)
 {
-    int processedChilds = 0;
     result resStruct;
-    bool processing = true;
+    readFromMD5(readFd, resStruct.hash, HASHSIZE, resStruct.filename, MAX_FILENAME);
+    resStruct.processId = childPid;
 
-    // iteracion por todos los hijos para saber cuales estan disponibles para trabajar
-    for (int itChild = 0; itChild < childNum && processing; itChild++)
-    {
-        if (FD_ISSET(pipedes[itChild][APPREADS][READEND], selectfd))
-        {
-            readFromMD5(pipedes[itChild][APPREADS][READEND], resStruct.hash, HASHSIZE, resStruct.filename, MAX_FILENAME);
-            resStruct.processId = childPids[itChild];
+    char buffer[MAXLINE];
+    int n = sprintf(buffer, LINE_FORMAT, resStruct.filename, resStruct.processId, resStruct.hash);
 
-            char buffer[MAXLINE];
-            int n = sprintf(buffer, LINE_FORMAT, resStruct.filename, resStruct.processId, resStruct.hash);
+    dprintf(destFd, "%s", buffer);
 
-            // TODO: quiza integrar el dprintf al writeSharedMem. Reusar el sprintf
-            dprintf(fd, LINE_FORMAT, resStruct.filename, resStruct.processId, resStruct.hash);
-            // fprintf(stderr, LINE_FORMAT, resStruct.filename, resStruct.processId, resStruct.hash);
-            writeSharedMem(memory, buffer, n);
-
-            (*filesReceived)++;
-
-            if (*filesSent < filecount)
-            {
-                dprintf(pipedes[itChild][APPWRITES][WRITEEND], "%s\n", filenames[*filesSent]);
-                (*filesSent)++;
-            }
-            if (++processedChilds == fdNum) // para evitar ciclos innecesarios
-                processing = false;
-        }
-    }
+    writeSharedMem(destMemory, buffer, n);
 }

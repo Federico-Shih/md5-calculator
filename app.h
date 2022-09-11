@@ -10,7 +10,6 @@
 #include <limits.h>
 #include <errno.h>
 
-
 #include "lib/shared.h"
 #include "lib/shared_memory.h"
 
@@ -25,12 +24,22 @@
 
 #define CHILD "./child"
 
+#define FILES_PER_CHILD 20
+#define MIN_CHILD 3
+
+typedef struct result
+{
+  char filename[MAX_FILENAME];
+  char hash[HASHSIZE + 1];
+  pid_t processId;
+} result;
+
 void createChilds(int pipedes[][2][2], int childNum, int childPids[]);
 void errorHandling(char *error);
-void readChildsAndProcess(int childNum, int fdNum, int *filesReceived, int *filesSent, int filecount, char *filenames[], fd_set *selectfd, int pipedes[][2][2], int childPids[], int fd, sharedMemADT memory);
 int loadSet(int childNum, fd_set *selectfd, int pipedes[][2][2]);
 void processFiles(int childNum, int pipedes[][2][2], int filecount, char *filenames[], int childPids[], int fd, sharedMemADT memory);
 int parseArguments(int argc, char *argv[], int *filecount, char *filenames[]);
 void readFromMD5(int fd, char *hash, int maxHash, char *filename, int maxFilename);
+void readAndProcess(int readFd, int childPid, int destFd, sharedMemADT destMemory);
 
 #endif

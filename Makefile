@@ -1,37 +1,22 @@
 CC=gcc
-GCCFLAGS = -g -Wall -std=c99 #sacar el -g !!!
+GCCFLAGS =-Wall -std=c99 -pedantic
 GCCLIBS = -lrt -lpthread
-FILES = lib/*.c
+FILES = $(wildcard lib/*.c)
+OBJECT_FILES = $(FILES:.c=.o)
 MAIN_FILES = app view child
+DEPS = $(wildcard *.h) $(wildcard lib/*.h)
 
+debug: GCCFLAGS+=-g
+debug: all
 
-all: $(MAIN_FILES)
+all: $(MAIN_FILES) $(OBJECT_FILES)
 
-$(MAIN_FILES): %: %.c
-	@$(CC) $(GCCFLAGS) $(FILES) -o $@ $< $(GCCLIBS)
+%.o: %.c $(FILES) $(DEPS)
+	@$(CC) $(GCCFLAGS) -c $< -o $@
 
-.PHONY: clean
+$(MAIN_FILES): %: %.o $(OBJECT_FILES)
+	@$(CC) $(GCCFLAGS) $< $(OBJECT_FILES) -o $@ $(GCCLIBS)
+
+.PHONY: clean all
 clean:
-	@rm -rf $(MAIN_FILES) *.txt
-
-
-# Posible nuevo makefile
-# CC=gcc
-# GCCFLAGS = -g -Wall -std=c99 #sacar el -g !!!
-# GCCLIBS = -lrt -lpthread
-# FILES = $(wildcard lib/*.c)
-# OBJECT_FILES = $(FILES:.c=.o)
-# MAIN_FILES = app view child
-# DEPS = $(wildcard *.h) $(wildcard lib/*.h)
-
-# all: $(MAIN_FILES) $(OBJECT_FILES)
-
-# %.o: %.c $(FILES) $(DEPS)
-# 	$(CC) $(GCCFLAGS) -c $< -o $@
-
-# $(MAIN_FILES): %: %.o $(OBJECT_FILES)
-# 	$(CC) $(GCCFLAGS) $< -o $@ $(GCCLIBS)
-
-# .PHONY: clean all
-# clean:
-# 	@rm -rf $(MAIN_FILES) *.txt
+	@rm -rf $(MAIN_FILES) *.txt $(OBJECT_FILES) *.o

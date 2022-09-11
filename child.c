@@ -5,19 +5,15 @@
 #include "child.h"
 
 #define MD5 "md5sum"
-#define S_(x) #x
-#define S(x) S_(x)
 
 int main()
 {
-
     char filename[MAX_FILENAME + 1]; // leerlo del pipe
     pid_t pid;
-
     // mientras siga recibiendo filenames desde app.c, sigue haciendo forks y llamando a md5sum
-    while (scanf("%" S(MAX_FILENAME) "s", filename) != EOF)
+    while (scanf("%" S(MAX_FILENAME) "s", filename) != EOF) 
     {
-        if ((pid = fork()) < 0)
+        if ((pid = fork()) == -1)
             exit(1);
         else if (pid == 0)
         {

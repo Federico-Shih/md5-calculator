@@ -17,20 +17,21 @@ int main(int argc, char const *argv[])
     mem_dir = malloc((SHARED_MEM_MAX_NAME + 1) * sizeof(char));
     scanf("%32s", mem_dir);
   }
-
+  
   sharedMemADT memory = initSharedMem();
-  connectSharedMem(memory, mem_dir);
-  free(mem_dir); // free de malloc o free de strdup, depende en cual entre (strdup hace un malloc)
+  int connected = connectSharedMem(memory, mem_dir);
+  if (connected) {
+    free(mem_dir); // free de malloc o free de strdup, depende en cual entre (strdup hace un malloc)
 
-  char buffer[MAXLINE];
+    char buffer[MAXLINE];
 
-  while (readSharedMem(memory, buffer))
-  {
-    printf("%s\n", buffer);
+    while (readSharedMem(memory, buffer))
+    {
+      printf("%s\n", buffer);
+    }
+
+    fprintf(stderr, "Desconecta hijo\n");
+    freeSharedMem(memory);
   }
-
-  fprintf(stderr, "Desconecta hijo\n");
-  disconnectSharedMem(memory);
-  freeSharedMem(memory);
-  exit(0);
+  exit(!connected);
 }

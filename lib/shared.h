@@ -23,12 +23,10 @@
 
 #define MAXLINE (MAX_FILENAME + HASHSIZE + MAX_PID + 24)
 
-typedef struct result
-{
-  char filename[MAX_FILENAME];
-  char hash[HASHSIZE + 1];
-  pid_t processId;
-} result;
+// MACRO UTILIZADO PARA CONCATENAR STRINGS EN PREPROCESAMIENTO https://stackoverflow.com/questions/25410690/scanf-variable-length-specifier
+#define S_(x) #x
+#define S(x) S_(x)
+
 
 void errorHandling(char *error);
 
