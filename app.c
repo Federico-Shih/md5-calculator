@@ -37,7 +37,6 @@ int main(int argc, char *argv[])
         sharedMemADT memory = initSharedMem();
         if (memory == NULL) 
             errorHandling("initSharedMem");
-            
         int res = startSharedMem(memory, SHARED_MEM_NAME);
 
         if (!res && errno != 0) {
@@ -201,28 +200,27 @@ int parseArguments(int argc, char *argv[], int *filecount, char *filenames[])
     return 1;
 }
 
-void readFromMD5(int fd, char *hash, int maxHash, char *filename, int maxFilename)
+void readFromMD5(int fd, char *hash, char *filename)
 {
-    char buf;
+    char buffer[MAX_MD5SUM_RESULT];
+    int c = read(fd, buffer, MAX_MD5SUM_RESULT);
+
+    strncpy(hash, buffer, HASHSIZE);
+    hash[HASHSIZE] = '\0';
+
     int i;
-    for (i = 0; i < maxHash && read(fd, &buf, 1) > 0 && buf != ' '; i++)
+    int filenameLength = c - HASHSIZE - 2;
+    for (i = 0; i < filenameLength && buffer[i + HASHSIZE + 2] != '\n'; i++)
     {
-        hash[i] = buf;
+        filename[i] = buffer[i + HASHSIZE + 2];
     }
-    hash[i] = 0;
-    read(fd, &buf, 1); // para sacar los espacios innecesarios
-    read(fd, &buf, 1);
-    for (i = 0; i < maxFilename && read(fd, &buf, 1) > 0 && buf != '\n'; i++)
-    {
-        filename[i] = buf;
-    }
-    filename[i] = 0;
+    filename[i] = '\0';
 }
 
 void readAndProcess(int readFd, int childPid, int destFd, sharedMemADT destMemory)
 {
     result resStruct;
-    readFromMD5(readFd, resStruct.hash, HASHSIZE, resStruct.filename, MAX_FILENAME);
+    readFromMD5(readFd, resStruct.hash, resStruct.filename);
     resStruct.processId = childPid;
 
     char buffer[MAXLINE];

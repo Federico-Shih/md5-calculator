@@ -21,7 +21,8 @@
 #define HASHSIZE 32
 #define MAX_PID 6 // porque el maximo pid posible es 32768
 
-#define MAXLINE (MAX_FILENAME + HASHSIZE + MAX_PID + 24)
+#define MAX_MD5SUM_RESULT (MAX_FILENAME + HASHSIZE + 3) // 4 caracteres son 3 espacios y un \n
+#define MAXLINE (MAX_FILENAME + HASHSIZE + MAX_PID + 24) // 24 caracteres son los caracteres de formatting 
 
 // MACRO UTILIZADO PARA CONCATENAR STRINGS EN PREPROCESAMIENTO https://stackoverflow.com/questions/25410690/scanf-variable-length-specifier
 #define S_(x) #x

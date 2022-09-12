@@ -4,7 +4,6 @@
 #include "lib/shared.h"
 #include "lib/shared_memory.h"
 
-
 int main(int argc, char const *argv[])
 {
   char *mem_dir;

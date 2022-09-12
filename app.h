@@ -39,7 +39,7 @@ void errorHandling(char *error);
 int loadSet(int childNum, fd_set *selectfd, int pipedes[][2][2]);
 void processFiles(int childNum, int pipedes[][2][2], int filecount, char *filenames[], int childPids[], int fd, sharedMemADT memory);
 int parseArguments(int argc, char *argv[], int *filecount, char *filenames[]);
-void readFromMD5(int fd, char *hash, int maxHash, char *filename, int maxFilename);
+void readFromMD5(int fd, char *hash, char *filename);
 void readAndProcess(int readFd, int childPid, int destFd, sharedMemADT destMemory);
 
 #endif

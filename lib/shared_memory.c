@@ -44,6 +44,7 @@ int writeSharedMem(sharedMemADT memory, const char *buffer, int n)
     if (memory->index + n >= SHARED_MEM_SIZE)
         return 0;
 
+    // No se utilizo strcpy debido a que queremos comunicar al view que hay una linea para leer
     for (int i = 0; i < n; i += 1)
     {
         memory->sharedMem[memory->index + i] = buffer[i];
