@@ -35,7 +35,14 @@ int main(int argc, char *argv[])
         }
 
         sharedMemADT memory = initSharedMem();
-        startSharedMem(memory, SHARED_MEM_NAME);
+        if (memory == NULL) 
+            errorHandling("initSharedMem");
+            
+        int res = startSharedMem(memory, SHARED_MEM_NAME);
+
+        if (!res && errno != 0) {
+            errorHandling("startSharedMem");
+        }
 
         // asigna files a procesar a todos los hijos disponibles hasta que todos los files esten procesados
         processFiles(childNum, pipedes, filecount, filenames, childPids, fd, memory);

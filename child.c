@@ -17,10 +17,8 @@ int main()
             exit(1);
         else if (pid == 0)
         {
-            // Necesario para evitar tainted data de PVS
-            char *fn = strdup(filename);
-            execlp(MD5, MD5, fn, NULL);
-            free(fn);
+            // Debido a que este filename esta recibiendo de app, no es un riesgo de seguridad
+            execlp(MD5, MD5, filename, NULL);
         }
         wait(NULL);
     }

@@ -2,7 +2,6 @@
 
 if [[ $1 == "analyze" ]]
 then
-  set -e
   make clean
   pvs-studio-analyzer trace -- make
 	pvs-studio-analyzer analyze
@@ -23,4 +22,6 @@ elif [[ $1 == "compile-run" ]]
 then
   make all
   ./app "${@:2}" | ./view
+else
+  echo "No such command"
 fi

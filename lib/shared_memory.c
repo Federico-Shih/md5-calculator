@@ -66,130 +66,127 @@ int startSharedMem(sharedMemADT memory, const char *mem_name)
 {
     strncpy(memory->sharedMemName, mem_name, SHARED_MEM_MAX_NAME);
     int shmFd;
-    if ((shmFd = shm_open(mem_name, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR | S_IXUSR)) != -1)
+    if ((shmFd = shm_open(mem_name, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR | S_IXUSR)) == -1)
     {
-        if (ftruncate(shmFd, SHARED_MEM_SIZE) != -1)
-        {
-            memory->sharedMem = mmap(NULL, SHARED_MEM_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, shmFd, 0);
-            if (memory->sharedMem != (void *)-1)
-            {
-                close(shmFd);
-                // Asigna el semaforo al ADT que el padre usa para comunicar que hay para leer.
-                memory->viewSemaphore = sem_open(SEM_VIEW_NAME, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR, 0);
-                if (memory->viewSemaphore != SEM_FAILED)
-                {
-                    // Abre un semaforo temporal para que view pueda comunicar al padre que se conecto
-                    sem_t *appSem = sem_open(SEM_APP_NAME, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR, 0);
-                    if (appSem != SEM_FAILED)
-                    {
-                        struct timespec time;
-                        if (clock_gettime(CLOCK_REALTIME, &time) != -1)
-                        {
-                            time.tv_sec += CONNECTION_TIMEOUT;
-
-                            printf("%s\n", SHARED_MEM_NAME);
-                            int initialized = sem_timedwait(appSem, &time);
-
-                            sem_close(appSem);
-                            sem_unlink(SEM_APP_NAME);
-
-                            if (initialized != -1)
-                            {
-                                return 1;
-                            }
-                            if (errno == ETIMEDOUT)
-                                return 0;
-                            perror("sem_timedwait");
-                        }
-                        else
-                            perror("clock_gettime");
-                        sem_close(appSem);
-                        sem_unlink(SEM_APP_NAME);
-                    }
-                    else
-                        perror("sem_open_app");
-                    sem_close(memory->viewSemaphore);
-                    sem_unlink(SEM_VIEW_NAME);
-                }
-                else
-                    perror("sem_open_view");
-                munmap(memory->sharedMem, SHARED_MEM_SIZE);
-            }
-            else
-                perror("mmap");
-        }
-        else
-        {
-            perror("ftruncate");
-        }
-        close(shmFd);
-        disconnectSharedMem(memory);
+        freeSharedMemLevel(memory, ADT);
+        return 0;
     }
-    else
-        perror("shm_open");
-    free(memory);
-    errorHandling("startSharedMem");
-    return 0;
+
+    if (ftruncate(shmFd, SHARED_MEM_SIZE) == -1)
+    {
+        close(shmFd);
+        freeSharedMemLevel(memory, ADT | DISCONNECT);
+        return 0;
+    }
+
+    memory->sharedMem = mmap(NULL, SHARED_MEM_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, shmFd, 0);
+    close(shmFd);
+    if (memory->sharedMem == (void *)-1)
+    {
+        freeSharedMemLevel(memory, ADT | UNMAP | DISCONNECT);
+        return 0;
+    }
+
+    // Asigna el semaforo al ADT que el padre usa para comunicar que hay para leer.
+    memory->viewSemaphore = sem_open(SEM_VIEW_NAME, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR, 0);
+    if (memory->viewSemaphore == SEM_FAILED)
+    {
+        freeSharedMemLevel(memory, ADT | UNMAP | DISCONNECT);
+        return 0;
+    }
+
+    // Abre un semaforo temporal para que view pueda comunicar al padre que se conecto
+    sem_t *appSem = sem_open(SEM_APP_NAME, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR, 0);
+    if (appSem == SEM_FAILED)
+    {
+        freeSharedMem(memory);
+        return 0;
+    }
+
+    struct timespec time;
+    if (clock_gettime(CLOCK_REALTIME, &time) == -1)
+    {
+        sem_close(appSem);
+        sem_unlink(SEM_APP_NAME);
+        freeSharedMem(memory);
+        return 0;
+    }
+
+    time.tv_sec += CONNECTION_TIMEOUT;
+
+    printf("%s\n", SHARED_MEM_NAME);
+    int initialized = sem_timedwait(appSem, &time);
+
+    sem_close(appSem);
+    sem_unlink(SEM_APP_NAME);
+
+    if (initialized == -1)
+    {
+        if (errno != ETIMEDOUT) {
+            freeSharedMem(memory);
+        }
+        return 0;
+    }
+
+    return 1;
 }
 
 int connectSharedMem(sharedMemADT memory, const char *mem_name)
 {
     strncpy(memory->sharedMemName, mem_name, strlen(mem_name));
     int shmFd;
-    if ((shmFd = shm_open(mem_name, O_RDWR, S_IRUSR | S_IWUSR)) != -1)
+    if ((shmFd = shm_open(mem_name, O_RDWR, S_IRUSR | S_IWUSR)) == -1)
     {
-        memory->sharedMem = mmap(NULL, SHARED_MEM_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, shmFd, 0);
-        if (memory->sharedMem != (void *)-1)
-        {
-            memory->index = 0;
-            close(shmFd);
-
-            sem_t *appSem = sem_open(SEM_APP_NAME, O_RDWR);
-            if (appSem != SEM_FAILED)
-            {
-                // Avisa al app que se conecto.
-                if (sem_post(appSem) != -1)
-                {
-                    sem_close(appSem);
-
-                    // Abre el semaforo para que se puedan conectar
-                    sem_t *address = sem_open(SEM_VIEW_NAME, O_RDWR);
-                    if (address != SEM_FAILED)
-                    {
-                        memory->viewSemaphore = address;
-                        return 1;
-                    }
-                    else
-                        perror("sem_open");
-                    freeSharedMem(memory);
-                }
-                else
-                    perror("sem_post");
-                sem_close(appSem);
-                sem_unlink(SEM_APP_NAME);
-            }
-            else
-                perror("sem_open");
-            munmap(memory->sharedMem, SHARED_MEM_SIZE);
-        }
-        else
-            perror("mmap");
-        close(shmFd);
-        disconnectSharedMem(memory);
+        freeSharedMemLevel(memory, DISCONNECT | ADT);
+        return 0;
     }
-    else
-        perror("shm_open-no-init-parent");
-    sem_unlink(SEM_VIEW_NAME);
-    free(memory);
-    return 0;
+
+    memory->sharedMem = mmap(NULL, SHARED_MEM_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, shmFd, 0);
+    if (memory->sharedMem == (void *)-1)
+    {
+        close(shmFd);
+        freeSharedMemLevel(memory, DISCONNECT | ADT);
+        return 0;
+    }
+
+    close(shmFd);
+
+    sem_t *appSem = sem_open(SEM_APP_NAME, O_RDWR);
+    if (appSem == SEM_FAILED)
+    {
+        freeSharedMemLevel(memory, DISCONNECT | ADT | UNMAP);
+        return 0;
+    }
+
+    // Avisa al app que se conecto.
+    if (sem_post(appSem) == -1)
+    {
+        sem_close(appSem);
+        sem_unlink(SEM_APP_NAME);
+        freeSharedMemLevel(memory, DISCONNECT | ADT | UNMAP);
+        return 0;
+    }
+
+    sem_close(appSem);
+
+    // Abre el semaforo para que se puedan conectar
+    sem_t *address = sem_open(SEM_VIEW_NAME, O_RDWR);
+    if (address == SEM_FAILED)
+    {
+        freeSharedMemLevel(memory, DISCONNECT | ADT | UNMAP); 
+        return 0;
+    }
+           
+    memory->viewSemaphore = address;
+    return 1;
 }
 
 sharedMemADT initSharedMem()
 {
     sharedMemADT ret = malloc(sizeof(struct sharedMemCDT));
     if (ret == NULL)
-    { // warning de pvs, posible desreferenceo de null
-        errorHandling("malloc");
+    { 
+        perror("malloc");
     }
     else
     {
@@ -200,7 +197,7 @@ sharedMemADT initSharedMem()
 
 void disconnectSharedMem(sharedMemADT memory)
 {
-    shm_unlink(memory->sharedMemName);
+    freeSharedMemLevel(memory, DISCONNECT);
 }
 
 int closeSharedMem(sharedMemADT memory)
@@ -211,8 +208,27 @@ int closeSharedMem(sharedMemADT memory)
 
 void freeSharedMem(sharedMemADT memory)
 {
-    munmap(memory->sharedMem, SHARED_MEM_SIZE);
-    sem_close(memory->viewSemaphore);
-    sem_unlink(SEM_VIEW_NAME);
-    free(memory);
+    freeSharedMemLevel(memory, ADT | UNMAP | CLOSE_SEM);
+}
+
+void freeSharedMemLevel(sharedMemADT memory, int freeLevel)
+{
+    if ((freeLevel & CLOSE_SEM) == CLOSE_SEM)
+    {
+        sem_close(memory->viewSemaphore);
+        sem_unlink(SEM_VIEW_NAME);
+    }
+    if ((freeLevel & UNMAP) == UNMAP)
+    {
+        munmap(memory->sharedMem, SHARED_MEM_SIZE);
+    }
+    if ((freeLevel & DISCONNECT) == DISCONNECT)
+    {
+        shm_unlink(memory->sharedMemName);
+    }
+    if ((freeLevel & ADT) == ADT)
+    {
+        free(memory);
+    }
+
 }

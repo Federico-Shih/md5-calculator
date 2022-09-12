@@ -32,5 +32,8 @@ int main(int argc, char const *argv[])
 
     freeSharedMem(memory);
   }
-  exit(!connected);
+  if (!connected && errno != 0) {
+    errorHandling("connectSharedMem");
+  }
+  return !connected;
 }
