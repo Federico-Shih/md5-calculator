@@ -30,7 +30,6 @@ int main(int argc, char const *argv[])
       printf("%s\n", buffer);
     }
 
-    fprintf(stderr, "Desconecta hijo\n");
     freeSharedMem(memory);
   }
   exit(!connected);

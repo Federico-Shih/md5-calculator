@@ -51,13 +51,11 @@ int main(int argc, char *argv[])
         }
         close(fd);
 
-        fprintf(stderr, "Desconecta padre\n");
         closeSharedMem(memory);
         disconnectSharedMem(memory);
         freeSharedMem(memory);
     }
-    else
-        fprintf(stderr, "No files to process\n");
+    
     return 0;
 }
 

@@ -17,7 +17,7 @@
 #include <errno.h>
 
 #define CONNECTION_TIMEOUT 2
-#define SHARED_MEM_SIZE 4096
+#define SHARED_MEM_SIZE 65536
 #define SHARED_MEM_NAME "/shared"
 #define SHARED_MEM_MAX_NAME 32
 #define SEM_VIEW_NAME "/semview"

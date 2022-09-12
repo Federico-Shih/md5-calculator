@@ -87,7 +87,6 @@ int startSharedMem(sharedMemADT memory, const char *mem_name)
                         {
                             time.tv_sec += CONNECTION_TIMEOUT;
 
-                            fprintf(stderr, "Esperando conexion de hijo\n");
                             printf("%s\n", SHARED_MEM_NAME);
                             int initialized = sem_timedwait(appSem, &time);
 
@@ -96,7 +95,6 @@ int startSharedMem(sharedMemADT memory, const char *mem_name)
 
                             if (initialized != -1)
                             {
-                                fprintf(stderr, "Se conecto el hijo\n");
                                 return 1;
                             }
                             if (errno == ETIMEDOUT)
