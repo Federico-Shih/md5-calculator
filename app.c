@@ -39,7 +39,7 @@ int main(int argc, char *argv[])
             errorHandling("initSharedMem");
         int res = startSharedMem(memory, SHARED_MEM_NAME);
 
-        if (!res && errno != 0) {
+        if (!res && errno != 0 && errno != ETIMEDOUT) {
             errorHandling("startSharedMem");
         }
 
@@ -82,9 +82,17 @@ void createChilds(int pipedes[][2][2], int childNum, int childPids[])
         if (pid == 0)
         {
             dup2(pipedes[i][APPWRITES][READEND], STDIN_FILENO); // hijo lee de STDIN
-            close(pipedes[i][APPWRITES][WRITEEND]);
             dup2(pipedes[i][APPREADS][WRITEEND], STDOUT_FILENO); // hijo escribe a STDOUT
-            close(pipedes[i][APPREADS][READEND]);
+
+            close(pipedes[i][APPWRITES][READEND]);
+            close(pipedes[i][APPREADS][WRITEEND]);
+
+            //cierro extremos inutilizados de los pipes de hijos anteriores
+            for (size_t j = 0; j <= i; j++)
+            {
+                close(pipedes[j][APPWRITES][WRITEEND]);
+                close(pipedes[j][APPREADS][READEND]);
+            }
 
             if (execl(CHILD, CHILD, NULL) == -1)
                 errorHandling("execl");
